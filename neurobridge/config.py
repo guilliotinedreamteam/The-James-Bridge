@@ -120,7 +120,7 @@ class TrainingConfig:
     """Training hyper-parameters and artifact locations."""
 
     batch_size: int = 16
-    max_epochs: int = 50
+    max_epochs: int = 100
     learning_rate: float = 1e-3
     val_split: float = 0.1
     test_split: float = 0.1
