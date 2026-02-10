@@ -7,3 +7,10 @@ flask>=2.3.0
 flask-cors>=4.0.0
 websockets>=11.0
 python-dotenv>=1.0.0
+tensorflow
+fastapi
+uvicorn
+httpx
+loguru
+pyyaml
+h5py

@@ -74,6 +74,8 @@ class DatasetConfig:
     max_files: Optional[int] = None
     min_signal_duration_s: float = 2.0
     random_seed: int = 13
+    high_gamma_low: float = 70.0
+    high_gamma_high: float = 150.0
 
     def __post_init__(self) -> None:
         self.ecog_dir = Path(self.ecog_dir)
