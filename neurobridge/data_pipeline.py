@@ -82,6 +82,19 @@ def _zscore(signal_array: np.ndarray) -> np.ndarray:
     return (signal_array - mean) / std
 
 
+def _common_average_reference(signal_array: np.ndarray) -> np.ndarray:
+    """Subtract the mean across all channels from each channel."""
+    # signal_array shape: (time, channels)
+    common_average = np.mean(signal_array, axis=1, keepdims=True)
+    return signal_array - common_average
+
+
+def _hilbert_envelope(signal_array: np.ndarray) -> np.ndarray:
+    """Extract the analytic signal envelope using the Hilbert transform."""
+    analytic_signal = sp_signal.hilbert(signal_array, axis=0)
+    return np.abs(analytic_signal)
+
+
 def segment_signal(signal_array: np.ndarray, window: int, stride: int) -> np.ndarray:
     windows: List[np.ndarray] = []
     for start in range(0, signal_array.shape[0] - window + 1, stride):
@@ -118,14 +131,34 @@ def load_ecog_matrix(path: Path, cfg: DatasetConfig) -> np.ndarray:
 
 
 def preprocess_ecog(raw: np.ndarray, cfg: DatasetConfig) -> np.ndarray:
-    bandpassed = _bandpass_filter(raw, cfg.sampling_rate_hz)
+    # 1. Common Average Referencing (CAR)
+    car_signal = _common_average_reference(raw)
+
+    # 2. Bandpass Filter (High-Gamma extraction: 70-150 Hz)
+    bandpassed = _bandpass_filter(
+        car_signal,
+        cfg.sampling_rate_hz,
+        low=cfg.high_gamma_low,
+        high=cfg.high_gamma_high
+    )
+
+    # 3. Notch Filter (remove line noise)
     cleaned = _apply_notch_filters(bandpassed, cfg.sampling_rate_hz)
-    downsampled = _downsample(cleaned, cfg.sampling_rate_hz, cfg.target_rate_hz)
+
+    # 4. Hilbert Envelope Extraction (for High-Gamma power)
+    envelope = _hilbert_envelope(cleaned)
+
+    # 5. Downsample
+    downsampled = _downsample(envelope, cfg.sampling_rate_hz, cfg.target_rate_hz)
+
+    # 6. Feature Selection / Padding
     if downsampled.shape[1] > cfg.num_features:
         downsampled = downsampled[:, : cfg.num_features]
     elif downsampled.shape[1] < cfg.num_features:
         padding = np.zeros((downsampled.shape[0], cfg.num_features - downsampled.shape[1]), dtype=downsampled.dtype)
         downsampled = np.concatenate([downsampled, padding], axis=1)
+
+    # 7. Z-score Normalization
     return _zscore(downsampled).astype(np.float32)
 
 
