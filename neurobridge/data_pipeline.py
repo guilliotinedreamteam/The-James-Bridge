@@ -118,9 +118,23 @@ def load_ecog_matrix(path: Path, cfg: DatasetConfig) -> np.ndarray:
 
 
 def preprocess_ecog(raw: np.ndarray, cfg: DatasetConfig) -> np.ndarray:
-    bandpassed = _bandpass_filter(raw, cfg.sampling_rate_hz)
-    cleaned = _apply_notch_filters(bandpassed, cfg.sampling_rate_hz)
-    downsampled = _downsample(cleaned, cfg.sampling_rate_hz, cfg.target_rate_hz)
+    # 1. Common Average Referencing (CAR)
+    mean_across_channels = np.mean(raw, axis=1, keepdims=True)
+    car_signal = raw - mean_across_channels
+
+    # 2. Notch Filters
+    cleaned = _apply_notch_filters(car_signal, cfg.sampling_rate_hz)
+
+    # 3. High Gamma Bandpass
+    bandpassed = _bandpass_filter(cleaned, cfg.sampling_rate_hz, low=cfg.high_gamma_low, high=cfg.high_gamma_high)
+
+    # 4. Hilbert Envelope
+    analytic = sp_signal.hilbert(bandpassed, axis=0)
+    envelope = np.abs(analytic)
+
+    # 5. Downsample
+    downsampled = _downsample(envelope, cfg.sampling_rate_hz, cfg.target_rate_hz)
+
     if downsampled.shape[1] > cfg.num_features:
         downsampled = downsampled[:, : cfg.num_features]
     elif downsampled.shape[1] < cfg.num_features:

@@ -66,6 +66,8 @@ class DatasetConfig:
     window_duration_ms: int = 400
     stride_ms: int = 40
     num_features: int = 128
+    high_gamma_low: float = 70.0
+    high_gamma_high: float = 150.0
     phonemes: List[str] = field(default_factory=_default_phonemes)
     label_columns: Dict[str, str] = field(
         default_factory=lambda: {"start": "start_sec", "end": "end_sec", "label": "phoneme"}
