@@ -1,32 +1,18 @@
-"""NeuroBridge Python package providing ECoG processing, modeling, and inference helpers."""
+"""
+NeuroBridge - Neural Interface Bridge System
 
-from .config import (
-    DatasetConfig,
-    ModelConfig,
-    NeuroBridgeConfig,
-    RealtimeConfig,
-    SpeechConfig,
-    TrainingConfig,
-)
-from .data_pipeline import ECoGDatasetBuilder, PhonemeInventory
-from .models import build_offline_decoder, build_realtime_decoder, initialize_realtime_from_offline
-from .realtime import RealtimeDecoder
-from .speech import PhonemeSynthesizer
-from .training import train_and_evaluate
+A clinical-grade neural interface bridge system for processing and analyzing
+brain-computer interface (BCI) data. Decodes intracranial electrocorticography (ECoG) 
+and high-density EEG signals into phonemes using Bidirectional LSTMs.
+"""
 
-__all__ = [
-    "DatasetConfig",
-    "ModelConfig",
-    "TrainingConfig",
-    "RealtimeConfig",
-    "SpeechConfig",
-    "NeuroBridgeConfig",
-    "PhonemeInventory",
-    "ECoGDatasetBuilder",
-    "build_offline_decoder",
-    "build_realtime_decoder",
-    "initialize_realtime_from_offline",
-    "train_and_evaluate",
-    "RealtimeDecoder",
-    "PhonemeSynthesizer",
-]
+__version__ = "1.0.0"
+__author__ = "NeuroBridge Team"
+
+# Core architecture imports for top-level package access
+from neurobridge.config import Config
+from neurobridge.data.ingestion import ECoGIngestionPipeline
+from neurobridge.processing.signal import SignalProcessor
+from neurobridge.model.decoder import NeurobridgeDecoder
+from neurobridge.training.trainer import ModelTrainer
+from neurobridge.actuation.interface import ProstheticInterface
