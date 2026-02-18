@@ -3,7 +3,14 @@ scipy>=1.10.0
 pandas>=2.0.0
 matplotlib>=3.7.0
 scikit-learn>=1.3.0
-flask>=2.3.0
-flask-cors>=4.0.0
+fastapi
+uvicorn
 websockets>=11.0
 python-dotenv>=1.0.0
+tensorflow
+loguru
+pytest
+pytest-asyncio
+httpx
+PyYAML
+h5py
