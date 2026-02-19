@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, Zap, Activity } from "lucide-react";
 import { SignalVisualizer } from "@/components/SignalVisualizer";
+import { api } from "@/lib/api";
 
 const Index = () => {
   return (
@@ -56,7 +57,7 @@ const Index = () => {
                 <Button 
                   onClick={async () => {
                     try {
-                      await import("@/lib/api").then(m => m.api.train());
+                      await api.train();
                       alert("Training started!");
                     } catch (e) {
                       alert("Failed to start training");
@@ -82,7 +83,7 @@ const Index = () => {
                       const input = document.getElementById("synth-input") as HTMLInputElement;
                       if (!input.value) return;
                       try {
-                        await import("@/lib/api").then(m => m.api.synthesize(input.value));
+                        await api.synthesize(input.value);
                         alert("Synthesis complete!");
                       } catch (e) {
                         alert("Synthesis failed");
