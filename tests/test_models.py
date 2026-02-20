@@ -49,3 +49,21 @@ def test_transformer_architecture(mock_configs):
     model = build_offline_decoder(data_cfg, model_cfg)
     assert isinstance(model, tf.keras.Model)
     assert model.output_shape == (None, 10, 4)
+
+def test_realtime_transformer_architecture(mock_configs):
+    data_cfg, model_cfg = mock_configs
+    model_cfg.architecture = "transformer"
+    model_cfg.transformer_layers = 1
+    model_cfg.num_heads = 2
+    model_cfg.ff_dim = 32
+
+    model = build_realtime_decoder(data_cfg, model_cfg)
+    assert isinstance(model, tf.keras.Model)
+    assert model.output_shape == (None, 10, 4)
+
+    # Check for Transformer layers
+    has_transformer = any(
+        "transformer_block" in layer.name or "TransformerBlock" in type(layer).__name__
+        for layer in model.layers
+    )
+    assert has_transformer, "Realtime decoder should have Transformer layers when configured"

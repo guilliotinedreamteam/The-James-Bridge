@@ -74,7 +74,7 @@ def _transformer_stack(inputs: tf.Tensor, cfg: ModelConfig) -> tf.Tensor:
     
     for _ in range(cfg.transformer_layers):
         # We use the last conv filter size as the embedding dimension
-        embed_dim = inputs.shape[-1]
+        embed_dim = x.shape[-1]
         x = TransformerBlock(embed_dim, cfg.num_heads, cfg.ff_dim, cfg.dropout_rate)(x)
     return x
 
@@ -106,7 +106,12 @@ def build_offline_decoder(data_cfg: DatasetConfig, model_cfg: ModelConfig) -> tf
 def build_realtime_decoder(data_cfg: DatasetConfig, model_cfg: ModelConfig) -> tf.keras.Model:
     inputs = tf.keras.Input(shape=(data_cfg.window_length, data_cfg.num_features), name="realtime_window")
     x = _conv_frontend(inputs, model_cfg)
-    x = _rnn_stack(x, model_cfg, bidirectional=False)
+
+    if model_cfg.architecture == "transformer":
+        x = _transformer_stack(x, model_cfg)
+    else:
+        x = _rnn_stack(x, model_cfg, bidirectional=False)
+
     x = tf.keras.layers.TimeDistributed(
         tf.keras.layers.Dense(model_cfg.dense_units, activation="relu"),
         name="realtime_time_dense",
