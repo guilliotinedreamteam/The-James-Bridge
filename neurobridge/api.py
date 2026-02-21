@@ -25,10 +25,14 @@ engine_task: Optional[asyncio.Task] = None
 async def lifespan(app: FastAPI):
     global engine, engine_task
     # Startup
-    provider = SineWaveSignalProvider(num_channels=128)
-    engine = NeuralEngine(provider)
-    engine_task = asyncio.create_task(engine.start())
-    logger.info("Neural Engine background task started")
+    try:
+        provider = SineWaveSignalProvider(num_channels=128)
+        engine = NeuralEngine(provider)
+        engine_task = asyncio.create_task(engine.start())
+        logger.info("Neural Engine background task started")
+    except Exception as e:
+        logger.error(f"Failed to start Neural Engine: {e}")
+        engine = None
     
     yield
     
@@ -150,7 +154,12 @@ def trigger_synthesis(req: SynthesisRequest):
         
         config = NeuroBridgeConfig.from_yaml(cfg_path)
         inventory = PhonemeInventory(config.dataset.phonemes)
-        ids = [int(token) for token in req.sequence.split(",") if token.strip()]
+
+        try:
+            ids = [int(token) for token in req.sequence.split(",") if token.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid sequence format. Expected comma-separated integers.")
+
         synthesizer = PhonemeSynthesizer(inventory, config.speech)
         
         audio = synthesizer.synthesize(ids)
@@ -161,6 +170,8 @@ def trigger_synthesis(req: SynthesisRequest):
         synthesizer.save_wav(audio, Path(output))
         
         return {"message": "Synthesis complete", "output": output}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Synthesis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

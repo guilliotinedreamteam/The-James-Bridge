@@ -85,8 +85,10 @@ def build_offline_decoder(data_cfg: DatasetConfig, model_cfg: ModelConfig) -> tf
     
     if model_cfg.architecture == "transformer":
         x = _transformer_stack(x, model_cfg)
-    else:
+    elif model_cfg.architecture == "rnn":
         x = _rnn_stack(x, model_cfg, bidirectional=True)
+    else:
+        raise ValueError(f"Unknown architecture: {model_cfg.architecture}")
         
     x = tf.keras.layers.TimeDistributed(
         tf.keras.layers.Dense(model_cfg.dense_units, activation="relu"),
