@@ -140,27 +140,41 @@ async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTas
     background_tasks.add_task(run_training_task, req.config_path, req.epochs)
     return {"message": "Training started in background"}
 
+def _run_synthesis(phoneme_ids: List[int], output_path: Optional[str]):
+    """Blocking synthesis task to be run in executor."""
+    cfg_path = Path("neurobridge.config.yaml")
+    if not cfg_path.exists():
+         raise FileNotFoundError("Default config neurobridge.config.yaml not found")
+
+    config = NeuroBridgeConfig.from_yaml(cfg_path)
+    inventory = PhonemeInventory(config.dataset.phonemes)
+    synthesizer = PhonemeSynthesizer(inventory, config.speech)
+
+    audio = synthesizer.synthesize(phoneme_ids)
+    if audio.size == 0:
+        return {"message": "No audio generated (empty sequence)"}
+
+    output = output_path or str(config.speech.export_audio_dir / "output.wav")
+    synthesizer.save_wav(audio, Path(output))
+
+    return {"message": "Synthesis complete", "output": output}
+
 @app.post("/synthesize")
-def trigger_synthesis(req: SynthesisRequest):
+async def trigger_synthesis(req: SynthesisRequest):
     try:
-        # Load default config for speech settings
-        cfg_path = Path("neurobridge.config.yaml")
-        if not cfg_path.exists():
-             raise FileNotFoundError("Default config neurobridge.config.yaml not found")
+        if not req.sequence:
+             raise ValueError("Empty sequence provided")
         
-        config = NeuroBridgeConfig.from_yaml(cfg_path)
-        inventory = PhonemeInventory(config.dataset.phonemes)
-        ids = [int(token) for token in req.sequence.split(",") if token.strip()]
-        synthesizer = PhonemeSynthesizer(inventory, config.speech)
-        
-        audio = synthesizer.synthesize(ids)
-        if audio.size == 0:
-            return {"message": "No audio generated (empty sequence)"}
-            
-        output = req.output_path or str(config.speech.export_audio_dir / "output.wav")
-        synthesizer.save_wav(audio, Path(output))
-        
-        return {"message": "Synthesis complete", "output": output}
+        try:
+            ids = [int(token) for token in req.sequence.split(",") if token.strip()]
+        except ValueError:
+            raise ValueError("Invalid phoneme sequence format. Expected comma-separated integers.")
+
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, _run_synthesis, ids, req.output_path)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Synthesis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
