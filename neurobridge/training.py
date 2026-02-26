@@ -110,6 +110,7 @@ def train_and_evaluate(config: NeuroBridgeConfig) -> Dict:
         report = classification_report(
             y_true,
             y_pred,
+            labels=range(len(inventory.id_to_symbol)),
             target_names=inventory.id_to_symbol,
             zero_division=0,
             output_dict=True,
