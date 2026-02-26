@@ -134,6 +134,11 @@ def load_phoneme_intervals(path: Path, cfg: DatasetConfig) -> List[Tuple[float, 
     start_col = cfg.label_columns["start"]
     end_col = cfg.label_columns["end"]
     label_col = cfg.label_columns["label"]
+
+    missing_cols = [col for col in (start_col, end_col, label_col) if col not in df.columns]
+    if missing_cols:
+        raise ValueError(f"Label file {path} missing required columns: {missing_cols}")
+
     intervals: List[Tuple[float, float, str]] = []
     for row in df.itertuples(index=False):
         start = float(getattr(row, start_col))
@@ -210,15 +215,21 @@ class ECoGDatasetBuilder:
         val_count = int(n * self.val_split)
         test_count = int(n * self.test_split)
         train_count = max(1, n - val_count - test_count)
+
         train_pairs = pairs[:train_count]
         val_pairs = pairs[train_count : train_count + val_count]
         test_pairs = pairs[train_count + val_count :]
+
         if self.split == "train":
             return train_pairs
         if self.split == "val":
-            return val_pairs if val_pairs else train_pairs[-max(1, int(0.1 * train_count)) :]
+            if not val_pairs:
+                logger.warning("Validation split yielded 0 files. Validation will be empty.")
+            return val_pairs
         if self.split == "test":
-            return test_pairs if test_pairs else train_pairs[-max(1, int(0.1 * train_count)) :]
+            if not test_pairs:
+                logger.warning("Test split yielded 0 files. Test set will be empty.")
+            return test_pairs
         raise ValueError(f"Unknown split '{self.split}'")
 
     def _prepare_sample(self, ecog_path: Path, label_path: Path) -> Tuple[np.ndarray, np.ndarray]:
@@ -235,7 +246,11 @@ class ECoGDatasetBuilder:
                 # logger.debug("Loaded %s from cache", ecog_path.name)
                 return data["ecog"], data["labels"]
             except Exception as e:
-                logger.warning("Failed to load cache for %s: %s", ecog_path.name, e)
+                logger.warning("Failed to load cache for %s: %s. Deleting corrupted cache.", ecog_path.name, e)
+                try:
+                    cache_file.unlink()
+                except OSError:
+                    pass
 
         # Original processing logic
         raw = load_ecog_matrix(ecog_path, self.cfg)
