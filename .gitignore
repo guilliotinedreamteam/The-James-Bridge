@@ -66,3 +66,6 @@ htmlcov/
 *.dat
 *.h5
 *.pkl
+
+# Explicitly allow src/lib
+!src/lib/

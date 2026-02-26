@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, Zap, Activity } from "lucide-react";
@@ -5,6 +6,8 @@ import { SignalVisualizer } from "@/components/SignalVisualizer";
 import { api } from "@/lib/api";
 
 const Index = () => {
+  const [phonemeSeq, setPhonemeSeq] = useState("");
+
   return (
     <div className="space-y-4">
         {/* Stats Grid */}
@@ -76,14 +79,14 @@ const Index = () => {
                     type="text" 
                     placeholder="Phoneme sequence (e.g. 0,5,12)" 
                     className="flex-1 p-2 border rounded"
-                    id="synth-input"
+                    value={phonemeSeq}
+                    onChange={(e) => setPhonemeSeq(e.target.value)}
                   />
                   <Button 
                     onClick={async () => {
-                      const input = document.getElementById("synth-input") as HTMLInputElement;
-                      if (!input.value) return;
+                      if (!phonemeSeq) return;
                       try {
-                        await api.synthesize(input.value);
+                        await api.synthesize(phonemeSeq);
                         alert("Synthesis complete!");
                       } catch (e) {
                         alert("Synthesis failed");
