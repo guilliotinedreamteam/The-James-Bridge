@@ -83,6 +83,10 @@ class StateManager:
 
 state_manager = StateManager()
 
+@app.get("/")
+def read_root():
+    return {"name": "NeuroBridge API", "version": "1.0.0", "status": "active"}
+
 @app.get("/status", response_model=SystemStatus)
 def get_status():
     state = state_manager.get_state()
