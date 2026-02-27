@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, Zap, Activity } from "lucide-react";
 import { SignalVisualizer } from "@/components/SignalVisualizer";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
 
 const Index = () => {
   return (
