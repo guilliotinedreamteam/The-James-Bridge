@@ -16,6 +16,7 @@ from .speech import PhonemeSynthesizer
 from .training import train_and_evaluate
 from .signals import SineWaveSignalProvider, ReplaySignalProvider
 from .realtime.engine import NeuralEngine
+from .evolve import Evolver
 
 # Global Engine Management (used in lifespan)
 engine: Optional[NeuralEngine] = None
@@ -56,6 +57,10 @@ app.add_middleware(
 class TrainingRequest(BaseModel):
     config_path: str = "neurobridge.config.yaml"
     epochs: int = 10
+
+class EvolutionRequest(BaseModel):
+    generations: int = 5
+    base_config: str = "neurobridge.config.yaml"
 
 class SynthesisRequest(BaseModel):
     sequence: str
@@ -131,6 +136,21 @@ async def run_training_task(config_path: str, epochs: int):
     finally:
         state_manager.set_task("idle", None)
 
+async def run_evolution_task(generations: int, base_config: str):
+    state_manager.set_task("evolving", f"Evolving for {generations} generations")
+    try:
+        # Ensure mock data exists or generate it if needed for evolution
+        # (Evolution typically runs on mock data or a subset for speed)
+
+        evolver = Evolver(base_config_path=base_config)
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, evolver.run, generations)
+        logger.info("Evolution task completed successfully")
+    except Exception as e:
+        logger.error(f"Evolution failed: {e}")
+    finally:
+        state_manager.set_task("idle", None)
+
 @app.post("/train")
 async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTasks):
     current_status = state_manager.get_state()["status"]
@@ -139,6 +159,15 @@ async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTas
     
     background_tasks.add_task(run_training_task, req.config_path, req.epochs)
     return {"message": "Training started in background"}
+
+@app.post("/evolve")
+async def trigger_evolution(req: EvolutionRequest, background_tasks: BackgroundTasks):
+    current_status = state_manager.get_state()["status"]
+    if current_status != "idle":
+        raise HTTPException(status_code=409, detail="System is busy")
+
+    background_tasks.add_task(run_evolution_task, req.generations, req.base_config)
+    return {"message": "Evolution started in background"}
 
 @app.post("/synthesize")
 def trigger_synthesis(req: SynthesisRequest):

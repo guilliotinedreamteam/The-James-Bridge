@@ -107,10 +107,17 @@ def train_and_evaluate(config: NeuroBridgeConfig) -> Dict:
         report = {}
         confusion = []
     else:
+        # Use np.unique(y_true) to determine labels present in the test set.
+        # This prevents classification_report from erroring if some classes are missing.
+        labels_in_test = np.unique(y_true)
+        # We need the corresponding target names for these labels
+        target_names_in_test = [inventory.id_to_symbol[i] for i in labels_in_test]
+
         report = classification_report(
             y_true,
             y_pred,
-            target_names=inventory.id_to_symbol,
+            labels=labels_in_test,
+            target_names=target_names_in_test,
             zero_division=0,
             output_dict=True,
         )
