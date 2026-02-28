@@ -16,6 +16,7 @@ from .speech import PhonemeSynthesizer
 from .training import train_and_evaluate
 from .signals import SineWaveSignalProvider, ReplaySignalProvider
 from .realtime.engine import NeuralEngine
+from .evolve import Evolver
 
 # Global Engine Management (used in lifespan)
 engine: Optional[NeuralEngine] = None
@@ -56,6 +57,9 @@ app.add_middleware(
 class TrainingRequest(BaseModel):
     config_path: str = "neurobridge.config.yaml"
     epochs: int = 10
+
+class EvolutionRequest(BaseModel):
+    generations: int = 100
 
 class SynthesisRequest(BaseModel):
     sequence: str
@@ -130,6 +134,27 @@ async def run_training_task(config_path: str, epochs: int):
         logger.error(f"Training failed: {e}")
     finally:
         state_manager.set_task("idle", None)
+
+async def run_evolution_task(generations: int):
+    state_manager.set_task("evolving", f"Evolving for {generations} generations")
+    try:
+        loop = asyncio.get_event_loop()
+        evolver = Evolver()
+        await loop.run_in_executor(None, evolver.run, generations)
+        logger.info(f"Evolution completed successfully for {generations} generations")
+    except Exception as e:
+        logger.error(f"Evolution failed: {e}")
+    finally:
+        state_manager.set_task("idle", None)
+
+@app.post("/evolve")
+async def trigger_evolution(req: EvolutionRequest, background_tasks: BackgroundTasks):
+    current_status = state_manager.get_state()["status"]
+    if current_status != "idle":
+        raise HTTPException(status_code=409, detail="System is busy")
+
+    background_tasks.add_task(run_evolution_task, req.generations)
+    return {"message": f"Evolution started for {req.generations} generations"}
 
 @app.post("/train")
 async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTasks):
