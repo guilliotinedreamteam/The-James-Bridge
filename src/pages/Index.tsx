@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, Zap, Activity } from "lucide-react";
 import { SignalVisualizer } from "@/components/SignalVisualizer";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
 
 const Index = () => {
   return (
@@ -51,7 +51,7 @@ const Index = () => {
             <CardDescription>Manage your NeuroBridge instance</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 border rounded-lg">
                 <h3 className="font-semibold mb-2">Training</h3>
                 <Button 
@@ -66,6 +66,23 @@ const Index = () => {
                   className="w-full bg-blue-600 hover:bg-blue-700"
                 >
                   Start Training (10 Epochs)
+                </Button>
+              </div>
+
+              <div className="p-4 border rounded-lg">
+                <h3 className="font-semibold mb-2">Evolution</h3>
+                <Button
+                  onClick={async () => {
+                    try {
+                      await api.evolve(100);
+                      alert("Evolution started for 100 generations!");
+                    } catch (e) {
+                      alert("Failed to start evolution");
+                    }
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  Start Evolution (100 Gens)
                 </Button>
               </div>
               
