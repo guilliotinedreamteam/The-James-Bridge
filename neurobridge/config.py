@@ -191,10 +191,21 @@ class NeuroBridgeConfig:
         return cls.from_dict(data)
 
     def to_dict(self) -> Dict:
-        return {
+        def _convert_paths(obj):
+            if isinstance(obj, Path):
+                return str(obj)
+            elif isinstance(obj, dict):
+                return {k: _convert_paths(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [_convert_paths(v) for v in obj]
+            elif isinstance(obj, tuple):
+                return tuple(_convert_paths(v) for v in obj)
+            return obj
+
+        return _convert_paths({
             "dataset": asdict(self.dataset),
             "model": asdict(self.model),
             "training": asdict(self.training),
             "realtime": asdict(self.realtime),
             "speech": asdict(self.speech),
-        }
+        })
