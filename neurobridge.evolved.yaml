@@ -1,0 +1,100 @@
+dataset:
+  alignment_tolerance_ms: 20
+  ecog_dir: data/ecog
+  file_extension: .mat
+  label_columns:
+    end: end_sec
+    label: phoneme
+    start: start_sec
+  label_extension: .csv
+  labels_dir: data/labels
+  mat_key: ecog_data
+  max_files: null
+  min_signal_duration_s: 2.0
+  num_features: 128
+  phonemes:
+  - sil
+  - aa
+  - ae
+  - ah
+  - ao
+  - aw
+  - ay
+  - b
+  - ch
+  - d
+  - dh
+  - eh
+  - er
+  - ey
+  - f
+  - g
+  - hh
+  - ih
+  - iy
+  - jh
+  - k
+  - l
+  - m
+  - n
+  - ng
+  - ow
+  - oy
+  - p
+  - r
+  - s
+  - sh
+  - t
+  - th
+  - uh
+  - uw
+  - v
+  - w
+  - y
+  - z
+  random_seed: 13
+  sampling_rate_hz: 1000
+  stride_ms: 40
+  target_rate_hz: 200
+  window_duration_ms: 400
+model:
+  architecture: rnn
+  conv_filters:
+  - 64
+  - 128
+  conv_kernel_size: 5
+  dense_units: 256
+  dropout_rate: 0.3
+  ff_dim: 512
+  layer_norm: true
+  num_heads: 4
+  realtime_units:
+  - 192
+  - 128
+  rnn_units:
+  - 256
+  - 256
+  transformer_layers: 2
+realtime:
+  context_ms: 400
+  debounce_ms: 150
+  emit_threshold: 0.4
+  frame_ms: 40
+  smoothing_window: 5
+speech:
+  base_amplitude: 0.15
+  export_audio_dir: artifacts/neurobridge/audio
+  phoneme_duration_ms: 80
+  release_ms: 20
+  sample_rate: 16000
+training:
+  batch_size: 16
+  cache_dataset: true
+  checkpoint_dir: artifacts/neurobridge
+  learning_rate: 0.001
+  log_dir: runs/neurobridge
+  max_epochs: 50
+  metrics_path: artifacts/neurobridge/metrics.json
+  steps_per_epoch: null
+  test_split: 0.1
+  val_split: 0.1

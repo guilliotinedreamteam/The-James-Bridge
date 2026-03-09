@@ -57,6 +57,9 @@ class TrainingRequest(BaseModel):
     config_path: str = "neurobridge.config.yaml"
     epochs: int = 10
 
+class EvolutionRequest(BaseModel):
+    generations: int = 1
+
 class SynthesisRequest(BaseModel):
     sequence: str
     output_path: Optional[str] = None
@@ -131,6 +134,19 @@ async def run_training_task(config_path: str, epochs: int):
     finally:
         state_manager.set_task("idle", None)
 
+async def run_evolution_task(generations: int):
+    state_manager.set_task("evolving", f"Evolving for {generations} generations")
+    try:
+        from .evolve import Evolver
+        evolver = Evolver()
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, evolver.run, generations)
+        logger.info(f"Evolution completed successfully for {generations} generations")
+    except Exception as e:
+        logger.error(f"Evolution failed: {e}")
+    finally:
+        state_manager.set_task("idle", None)
+
 @app.post("/train")
 async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTasks):
     current_status = state_manager.get_state()["status"]
@@ -139,6 +155,15 @@ async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTas
     
     background_tasks.add_task(run_training_task, req.config_path, req.epochs)
     return {"message": "Training started in background"}
+
+@app.post("/evolve")
+async def trigger_evolution(req: EvolutionRequest, background_tasks: BackgroundTasks):
+    current_status = state_manager.get_state()["status"]
+    if current_status != "idle":
+        raise HTTPException(status_code=409, detail="System is busy")
+
+    background_tasks.add_task(run_evolution_task, req.generations)
+    return {"message": f"Evolution started in background for {req.generations} generations"}
 
 @app.post("/synthesize")
 def trigger_synthesis(req: SynthesisRequest):
