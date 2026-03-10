@@ -52,8 +52,8 @@ const Index = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 border rounded-lg">
-                <h3 className="font-semibold mb-2">Training</h3>
+              <div className="p-4 border rounded-lg flex flex-col gap-2">
+                <h3 className="font-semibold">Training & Evolution</h3>
                 <Button 
                   onClick={async () => {
                     try {
@@ -66,6 +66,19 @@ const Index = () => {
                   className="w-full bg-blue-600 hover:bg-blue-700"
                 >
                   Start Training (10 Epochs)
+                </Button>
+                <Button
+                  onClick={async () => {
+                    try {
+                      await api.evolve(100);
+                      alert("Evolution started!");
+                    } catch (e) {
+                      alert("Failed to start evolution");
+                    }
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                >
+                  Evolve Hyperparameters (100 Iterations)
                 </Button>
               </div>
               

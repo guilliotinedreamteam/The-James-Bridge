@@ -14,6 +14,7 @@ from .config import NeuroBridgeConfig, DatasetConfig
 from .data_pipeline import PhonemeInventory
 from .speech import PhonemeSynthesizer
 from .training import train_and_evaluate
+from .evolve import Evolver
 from .signals import SineWaveSignalProvider, ReplaySignalProvider
 from .realtime.engine import NeuralEngine
 
@@ -56,6 +57,10 @@ app.add_middleware(
 class TrainingRequest(BaseModel):
     config_path: str = "neurobridge.config.yaml"
     epochs: int = 10
+
+class EvolutionRequest(BaseModel):
+    config_path: str = "neurobridge.config.yaml"
+    generations: int = 100
 
 class SynthesisRequest(BaseModel):
     sequence: str
@@ -139,6 +144,34 @@ async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTas
     
     background_tasks.add_task(run_training_task, req.config_path, req.epochs)
     return {"message": "Training started in background"}
+
+async def run_evolution_task(config_path: str, generations: int):
+    state_manager.set_task("evolving", f"Evolving with {config_path} for {generations} generations")
+    try:
+        cfg_path = Path(config_path)
+        if not cfg_path.exists():
+            logger.error(f"Config file {cfg_path} not found")
+            return
+
+        config = NeuroBridgeConfig.from_yaml(cfg_path)
+        evolver = Evolver(config, generations=generations)
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, evolver.run)
+        logger.info(f"Evolution completed successfully for {config_path}")
+    except Exception as e:
+        logger.error(f"Evolution failed: {e}")
+    finally:
+        state_manager.set_task("idle", None)
+
+@app.post("/evolve")
+async def trigger_evolution(req: EvolutionRequest, background_tasks: BackgroundTasks):
+    current_status = state_manager.get_state()["status"]
+    if current_status != "idle":
+        raise HTTPException(status_code=409, detail="System is busy")
+
+    background_tasks.add_task(run_evolution_task, req.config_path, req.generations)
+    return {"message": "Evolution started in background"}
 
 @app.post("/synthesize")
 def trigger_synthesis(req: SynthesisRequest):
