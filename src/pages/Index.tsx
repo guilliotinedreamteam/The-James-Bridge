@@ -2,9 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, Zap, Activity } from "lucide-react";
 import { SignalVisualizer } from "@/components/SignalVisualizer";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
+import { useState } from "react";
 
 const Index = () => {
+  const [synthInput, setSynthInput] = useState("");
   return (
     <div className="space-y-4">
         {/* Stats Grid */}
@@ -70,29 +72,44 @@ const Index = () => {
               </div>
               
               <div className="p-4 border rounded-lg">
-                <h3 className="font-semibold mb-2">Synthesis</h3>
-                <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    placeholder="Phoneme sequence (e.g. 0,5,12)" 
-                    className="flex-1 p-2 border rounded"
-                    id="synth-input"
-                  />
+                <h3 className="font-semibold mb-2">Evolution & Synthesis</h3>
+                <div className="flex flex-col gap-2">
                   <Button 
                     onClick={async () => {
-                      const input = document.getElementById("synth-input") as HTMLInputElement;
-                      if (!input.value) return;
                       try {
-                        await api.synthesize(input.value);
-                        alert("Synthesis complete!");
+                        await api.evolve();
+                        alert("Evolution started!");
                       } catch (e) {
-                        alert("Synthesis failed");
+                        alert("Failed to start evolution");
                       }
                     }}
-                    variant="secondary"
+                    className="w-full bg-purple-600 hover:bg-purple-700"
                   >
-                    Synthesize
+                    Start Evolution (100 Gens)
                   </Button>
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="text"
+                      placeholder="Phoneme sequence (e.g. 0,5,12)"
+                      className="flex-1 p-2 border rounded"
+                      value={synthInput}
+                      onChange={(e) => setSynthInput(e.target.value)}
+                    />
+                    <Button
+                      onClick={async () => {
+                        if (!synthInput) return;
+                        try {
+                          await api.synthesize(synthInput);
+                          alert("Synthesis complete!");
+                        } catch (e) {
+                          alert("Synthesis failed");
+                        }
+                      }}
+                      variant="secondary"
+                    >
+                      Synthesize
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
