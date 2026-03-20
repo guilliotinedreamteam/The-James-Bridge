@@ -65,4 +65,4 @@ htmlcov/
 *.csv
 *.dat
 *.h5
-*.pkl
+*.pkl!src/lib/
