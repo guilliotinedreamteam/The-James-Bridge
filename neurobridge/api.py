@@ -16,6 +16,7 @@ from .speech import PhonemeSynthesizer
 from .training import train_and_evaluate
 from .signals import SineWaveSignalProvider, ReplaySignalProvider
 from .realtime.engine import NeuralEngine
+from .evolve import Evolver
 
 # Global Engine Management (used in lifespan)
 engine: Optional[NeuralEngine] = None
@@ -60,6 +61,10 @@ class TrainingRequest(BaseModel):
 class SynthesisRequest(BaseModel):
     sequence: str
     output_path: Optional[str] = None
+
+class EvolutionRequest(BaseModel):
+    config_path: str = "neurobridge.config.yaml"
+    generations: int = 100
 
 class SystemStatus(BaseModel):
     status: str
@@ -140,30 +145,66 @@ async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTas
     background_tasks.add_task(run_training_task, req.config_path, req.epochs)
     return {"message": "Training started in background"}
 
+async def _synthesize_blocking(req: SynthesisRequest) -> str:
+    # Load default config for speech settings
+    cfg_path = Path("neurobridge.config.yaml")
+    if not cfg_path.exists():
+         raise FileNotFoundError("Default config neurobridge.config.yaml not found")
+
+    config = NeuroBridgeConfig.from_yaml(cfg_path)
+    inventory = PhonemeInventory(config.dataset.phonemes)
+    ids = [int(token) for token in req.sequence.split(",") if token.strip()]
+    synthesizer = PhonemeSynthesizer(inventory, config.speech)
+
+    audio = synthesizer.synthesize(ids)
+    if audio.size == 0:
+        return "No audio generated (empty sequence)"
+
+    output = req.output_path or str(config.speech.export_audio_dir / "output.wav")
+    synthesizer.save_wav(audio, Path(output))
+    return output
+
 @app.post("/synthesize")
-def trigger_synthesis(req: SynthesisRequest):
+async def trigger_synthesis(req: SynthesisRequest):
     try:
-        # Load default config for speech settings
-        cfg_path = Path("neurobridge.config.yaml")
-        if not cfg_path.exists():
-             raise FileNotFoundError("Default config neurobridge.config.yaml not found")
+        loop = asyncio.get_event_loop()
+        output = await loop.run_in_executor(None, _synthesize_blocking, req)
         
-        config = NeuroBridgeConfig.from_yaml(cfg_path)
-        inventory = PhonemeInventory(config.dataset.phonemes)
-        ids = [int(token) for token in req.sequence.split(",") if token.strip()]
-        synthesizer = PhonemeSynthesizer(inventory, config.speech)
-        
-        audio = synthesizer.synthesize(ids)
-        if audio.size == 0:
-            return {"message": "No audio generated (empty sequence)"}
-            
-        output = req.output_path or str(config.speech.export_audio_dir / "output.wav")
-        synthesizer.save_wav(audio, Path(output))
+        if output.startswith("No audio generated"):
+            return {"message": output}
         
         return {"message": "Synthesis complete", "output": output}
     except Exception as e:
         logger.error(f"Synthesis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+async def run_evolution_task(config_path: str, generations: int):
+    state_manager.set_task("evolving", f"Evolving {config_path} for {generations} generations")
+    try:
+        cfg_path = Path(config_path)
+        if not cfg_path.exists():
+            logger.error(f"Config file {cfg_path} not found")
+            return
+
+        config = NeuroBridgeConfig.from_yaml(cfg_path)
+        evolver = Evolver(config)
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, evolver.evolve, generations)
+        logger.info(f"Evolution completed successfully for {config_path}")
+    except Exception as e:
+        logger.error(f"Evolution failed: {e}")
+    finally:
+        state_manager.set_task("idle", None)
+
+@app.post("/evolve")
+async def trigger_evolution(req: EvolutionRequest, background_tasks: BackgroundTasks):
+    current_status = state_manager.get_state()["status"]
+    if current_status != "idle":
+        raise HTTPException(status_code=409, detail="System is busy")
+
+    background_tasks.add_task(run_evolution_task, req.config_path, req.generations)
+    return {"message": f"Evolution started in background for {req.generations} generations"}
 
 if __name__ == "__main__":
     import uvicorn

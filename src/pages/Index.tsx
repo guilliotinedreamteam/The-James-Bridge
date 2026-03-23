@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, Zap, Activity } from "lucide-react";
 import { SignalVisualizer } from "@/components/SignalVisualizer";
-import { api } from "@/lib/api";
+import { api } from "@/lib/api-client";
 
 const Index = () => {
   return (
@@ -70,6 +70,23 @@ const Index = () => {
               </div>
               
               <div className="p-4 border rounded-lg">
+                <h3 className="font-semibold mb-2">Evolution</h3>
+                <Button
+                  onClick={async () => {
+                    try {
+                      await api.evolve(100);
+                      alert("Evolution started!");
+                    } catch (e) {
+                      alert("Failed to start evolution");
+                    }
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-700"
+                >
+                  Start Evolution (100 Generations)
+                </Button>
+              </div>
+
+              <div className="p-4 border rounded-lg col-span-1 md:col-span-2">
                 <h3 className="font-semibold mb-2">Synthesis</h3>
                 <div className="flex gap-2">
                   <input 
