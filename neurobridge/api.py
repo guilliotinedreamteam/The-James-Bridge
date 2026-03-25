@@ -14,6 +14,7 @@ from .config import NeuroBridgeConfig, DatasetConfig
 from .data_pipeline import PhonemeInventory
 from .speech import PhonemeSynthesizer
 from .training import train_and_evaluate
+from .evolve import Evolver
 from .signals import SineWaveSignalProvider, ReplaySignalProvider
 from .realtime.engine import NeuralEngine
 
@@ -60,6 +61,9 @@ class TrainingRequest(BaseModel):
 class SynthesisRequest(BaseModel):
     sequence: str
     output_path: Optional[str] = None
+
+class EvolutionRequest(BaseModel):
+    generations: int = 100
 
 class SystemStatus(BaseModel):
     status: str
@@ -112,6 +116,25 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         engine.remove_subscriber(q)
 
+async def run_evolution_task(generations: int):
+    state_manager.set_task("evolving", f"Evolving for {generations} generations")
+    try:
+        cfg_path = Path("neurobridge.config.yaml")
+        if not cfg_path.exists():
+            logger.error(f"Config file {cfg_path} not found")
+            return
+
+        config = NeuroBridgeConfig.from_yaml(cfg_path)
+
+        evolver = Evolver(config)
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, evolver.evolve, generations)
+        logger.info(f"Evolution completed successfully")
+    except Exception as e:
+        logger.error(f"Evolution failed: {e}")
+    finally:
+        state_manager.set_task("idle", None)
+
 async def run_training_task(config_path: str, epochs: int):
     state_manager.set_task("training", f"Training with {config_path}")
     try:
@@ -139,6 +162,15 @@ async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTas
     
     background_tasks.add_task(run_training_task, req.config_path, req.epochs)
     return {"message": "Training started in background"}
+
+@app.post("/evolve")
+async def trigger_evolution(req: EvolutionRequest, background_tasks: BackgroundTasks):
+    current_status = state_manager.get_state()["status"]
+    if current_status != "idle":
+        raise HTTPException(status_code=409, detail="System is busy")
+
+    background_tasks.add_task(run_evolution_task, req.generations)
+    return {"message": "Evolution started in background"}
 
 @app.post("/synthesize")
 def trigger_synthesis(req: SynthesisRequest):
