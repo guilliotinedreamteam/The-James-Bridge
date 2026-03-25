@@ -30,7 +30,7 @@ export const api = {
     },
 
     async synthesize(sequence: string, outputPath?: string) {
-        const body: any = { sequence };
+        const body: { sequence: string; output_path?: string } = { sequence };
         if (outputPath) body.output_path = outputPath;
 
         const response = await fetch(`${API_BASE}/synthesize`, {
