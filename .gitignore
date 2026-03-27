@@ -66,3 +66,4 @@ htmlcov/
 *.dat
 *.h5
 *.pkl
+!src/lib/
