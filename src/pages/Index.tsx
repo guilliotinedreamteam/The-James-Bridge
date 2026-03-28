@@ -53,20 +53,35 @@ const Index = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 border rounded-lg">
-                <h3 className="font-semibold mb-2">Training</h3>
-                <Button 
-                  onClick={async () => {
-                    try {
-                      await api.train();
-                      alert("Training started!");
-                    } catch (e) {
-                      alert("Failed to start training");
-                    }
-                  }}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  Start Training (10 Epochs)
-                </Button>
+                <h3 className="font-semibold mb-2">Training & Evolution</h3>
+                <div className="space-y-2">
+                  <Button
+                    onClick={async () => {
+                      try {
+                        await api.train();
+                        alert("Training started!");
+                      } catch (e) {
+                        alert("Failed to start training");
+                      }
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                  >
+                    Start Training (10 Epochs)
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      try {
+                        await api.evolve();
+                        alert("Evolution started for 100 generations!");
+                      } catch (e) {
+                        alert("Failed to start evolution");
+                      }
+                    }}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                  >
+                    Evolve Hyperparameters
+                  </Button>
+                </div>
               </div>
               
               <div className="p-4 border rounded-lg">
