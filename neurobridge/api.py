@@ -14,6 +14,7 @@ from .config import NeuroBridgeConfig, DatasetConfig
 from .data_pipeline import PhonemeInventory
 from .speech import PhonemeSynthesizer
 from .training import train_and_evaluate
+from .evolve import Evolver
 from .signals import SineWaveSignalProvider, ReplaySignalProvider
 from .realtime.engine import NeuralEngine
 
@@ -60,6 +61,10 @@ class TrainingRequest(BaseModel):
 class SynthesisRequest(BaseModel):
     sequence: str
     output_path: Optional[str] = None
+
+class EvolutionRequest(BaseModel):
+    generations: int = 100
+    config_path: str = "neurobridge.config.yaml"
 
 class SystemStatus(BaseModel):
     status: str
@@ -131,6 +136,29 @@ async def run_training_task(config_path: str, epochs: int):
     finally:
         state_manager.set_task("idle", None)
 
+async def run_evolution_task(config_path: str, generations: int):
+    state_manager.set_task("evolution", f"Evolving with {config_path} for {generations} generations")
+    try:
+        cfg_path = Path(config_path)
+        if not cfg_path.exists():
+            logger.error(f"Config file {cfg_path} not found")
+            return
+
+        config = NeuroBridgeConfig.from_yaml(cfg_path)
+
+        loop = asyncio.get_event_loop()
+
+        def _run_evolve():
+            evolver = Evolver(config)
+            evolver.evolve(generations=generations)
+
+        await loop.run_in_executor(None, _run_evolve)
+        logger.info(f"Evolution completed successfully for {config_path}")
+    except Exception as e:
+        logger.error(f"Evolution failed: {e}")
+    finally:
+        state_manager.set_task("idle", None)
+
 @app.post("/train")
 async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTasks):
     current_status = state_manager.get_state()["status"]
@@ -140,27 +168,40 @@ async def trigger_training(req: TrainingRequest, background_tasks: BackgroundTas
     background_tasks.add_task(run_training_task, req.config_path, req.epochs)
     return {"message": "Training started in background"}
 
+@app.post("/evolve")
+async def trigger_evolution(req: EvolutionRequest, background_tasks: BackgroundTasks):
+    current_status = state_manager.get_state()["status"]
+    if current_status != "idle":
+        raise HTTPException(status_code=409, detail="System is busy")
+
+    background_tasks.add_task(run_evolution_task, req.config_path, req.generations)
+    return {"message": "Evolution started in background"}
+
 @app.post("/synthesize")
-def trigger_synthesis(req: SynthesisRequest):
+async def trigger_synthesis(req: SynthesisRequest):
     try:
-        # Load default config for speech settings
-        cfg_path = Path("neurobridge.config.yaml")
-        if not cfg_path.exists():
-             raise FileNotFoundError("Default config neurobridge.config.yaml not found")
-        
-        config = NeuroBridgeConfig.from_yaml(cfg_path)
-        inventory = PhonemeInventory(config.dataset.phonemes)
-        ids = [int(token) for token in req.sequence.split(",") if token.strip()]
-        synthesizer = PhonemeSynthesizer(inventory, config.speech)
-        
-        audio = synthesizer.synthesize(ids)
-        if audio.size == 0:
-            return {"message": "No audio generated (empty sequence)"}
+        def _synthesize_logic():
+            # Load default config for speech settings
+            cfg_path = Path("neurobridge.config.yaml")
+            if not cfg_path.exists():
+                 raise FileNotFoundError("Default config neurobridge.config.yaml not found")
             
-        output = req.output_path or str(config.speech.export_audio_dir / "output.wav")
-        synthesizer.save_wav(audio, Path(output))
-        
-        return {"message": "Synthesis complete", "output": output}
+            config = NeuroBridgeConfig.from_yaml(cfg_path)
+            inventory = PhonemeInventory(config.dataset.phonemes)
+            ids = [int(token) for token in req.sequence.split(",") if token.strip()]
+            synthesizer = PhonemeSynthesizer(inventory, config.speech)
+
+            audio = synthesizer.synthesize(ids)
+            if audio.size == 0:
+                return {"message": "No audio generated (empty sequence)"}
+
+            output = req.output_path or str(config.speech.export_audio_dir / "output.wav")
+            synthesizer.save_wav(audio, Path(output))
+            return {"message": "Synthesis complete", "output": output}
+
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, _synthesize_logic)
+        return result
     except Exception as e:
         logger.error(f"Synthesis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
