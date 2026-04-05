@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 class SignalProcessor:
     """
     Phase 2: Core signal processing pipeline for high-density ECoG medical data.
-    Executes standard BCI preprocessing: Downsampling, Z-score Normalization, and Sequence Shaping.
+    Standardizes clinical data into LSTM-ready sequence tensors.
+    Integrated with Phase 8 Artifact Rejection.
     """
     def __init__(self, original_freq: int = 1000, target_freq: int = 100, target_timesteps: int = 100):
         self.original_freq = original_freq
@@ -17,14 +18,24 @@ class SignalProcessor:
         self.target_timesteps = target_timesteps
         logger.info(f"Initialized SignalProcessor (Target Freq: {self.target_freq}Hz, Timesteps: {self.target_timesteps})")
 
+    def apply_artifact_rejection(self, data: np.ndarray, sfreq: int) -> np.ndarray:
+        """
+        Phase 8: Cleans the signal of noise and rejects artifacts.
+        """
+        from neurobridge.processing.artifacts import ArtifactRejector
+        rejector = ArtifactRejector(sfreq=sfreq)
+        return rejector.full_clinical_clean(data)
+
     def downsample_signals(self, data: np.ndarray, current_freq: int = None) -> np.ndarray:
         """
         Downsamples the raw ECoG signal to meet real-time inference latency budgets.
-        Expects data shape: (channels, times) or (batch, channels, times)
-        Returns: Downsampled data array.
+        Integrated with Phase 8 cleaning.
         """
         if current_freq is None:
             current_freq = self.original_freq
+
+        # Apply artifact rejection BEFORE downsampling to preserve frequency-specific noise characteristics
+        data = self.apply_artifact_rejection(data, sfreq=current_freq)
 
         if current_freq == self.target_freq:
             logger.info("Signal is already at target frequency. Skipping downsampling.")
@@ -33,7 +44,7 @@ class SignalProcessor:
         logger.info(f"Downsampling signals from {current_freq} Hz to {self.target_freq} Hz")
         
         # Calculate the number of samples in the new sequence
-        time_axis = -1 # Assuming time is always the last axis (channels, times)
+        time_axis = -1 
         num_samples = int(data.shape[time_axis] * (self.target_freq / current_freq))
         
         downsampled_data = resample(data, num_samples, axis=time_axis)
