@@ -15,12 +15,16 @@ logger = logging.getLogger(__name__)
 _online_model = None
 _actuator = None
 
+import time
+
 async def predict_frame(request):
     """
     Ingests a single frame of data, runs inference, and returns phoneme probabilities.
-    Now triggers Phase 7 Actuation on high-confidence detections.
+    Phase 9 Latency Optimization: Bypassing `predict` overhead in favor of direct tensor invocation.
     """
     try:
+        start_time = time.perf_counter()
+        
         payload = await request.json()
         data_list = payload.get("data")
         
@@ -29,28 +33,33 @@ async def predict_frame(request):
             
         arr = np.array(data_list)
         
-        # Dynamic channel support: the model's input layer already knows its shape.
-        # We just need to ensure the incoming data matches the model's expected channels.
+        # Dynamic channel support
         expected_channels = _online_model.input_shape[-1]
         if arr.shape != (1, expected_channels):
             return JSONResponse({"error": f"Expected shape (1, {expected_channels}), got {arr.shape}"}, status_code=400)
             
         tensor_input = np.expand_dims(arr, axis=0)
-        probs = _online_model.predict(tensor_input, verbose=0)
-        probs = np.squeeze(probs).tolist()
+        
+        # PHASE 9: Latency Optimization. 
+        # model.predict() has massive overhead. Direct invocation is vastly faster for real-time.
+        probs_tensor = _online_model(tensor_input, training=False)
+        probs = np.squeeze(probs_tensor.numpy()).tolist()
+        
         top_phoneme_id = int(np.argmax(probs))
         confidence = float(np.max(probs))
         
         # ACTUATION TRIGGER: Phase 7
-        # If prediction confidence > 0.8, we actuate the prosthetic.
         actuated = False
         if _actuator and confidence > 0.8:
             actuated = _actuator.send_command(top_phoneme_id)
+            
+        latency_ms = (time.perf_counter() - start_time) * 1000.0
         
         return JSONResponse({
             "phoneme_id": top_phoneme_id,
             "confidence": confidence,
             "actuated": actuated,
+            "latency_ms": round(latency_ms, 2),
             "probabilities": probs
         })
         
