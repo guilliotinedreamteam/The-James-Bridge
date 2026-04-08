@@ -82,10 +82,11 @@ class RealtimeDecoder:
 
         # Reshape to (1, 1, features) for single-frame prediction
         frame = ecog_frame.reshape(1, 1, -1).astype(np.float32)
-        probs = self.model.predict(frame, verbose=0)
+        # Latency Optimization: model.predict() has massive overhead. Direct invocation is vastly faster for real-time.
+        probs = self.model(frame, training=False)
 
         # Flatten: (1, num_phonemes) → (num_phonemes,)
-        return probs.flatten()
+        return probs.numpy().flatten()
 
     def predict_label(
         self,
@@ -148,5 +149,6 @@ def predict_realtime_phoneme(
         1D array of phoneme probabilities.
     """
     frame = ecog_frame.reshape(1, 1, -1).astype(np.float32)
-    probs = model.predict(frame, verbose=0)
-    return probs.flatten()
+    # Latency Optimization: model.predict() has massive overhead. Direct invocation is vastly faster for real-time.
+    probs = model(frame, training=False)
+    return probs.numpy().flatten()
