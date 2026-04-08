@@ -1,0 +1,3 @@
+## 2024-04-10 - model.predict() vs model() for single-frame inference
+**Learning:** In TensorFlow/Keras, `model.predict()` adds massive overhead (up to 50-70x slower than a direct `model()` call) when used for single-frame inferences. This is because `predict()` sets up tf.data.Datasets, callback loops, and other batch-processing infrastructure which is unnecessary for a single frame. In realtime inference loops, this overhead can kill the latency budget.
+**Action:** When performing real-time, single-item inference, directly invoke the model with `model(inputs, training=False)` and extract `.numpy()` rather than using `model.predict()`.
