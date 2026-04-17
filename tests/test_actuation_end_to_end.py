@@ -16,7 +16,7 @@ def run_e2e_test():
     print("--- Starting End-to-End Actuation Test ---")
     
     server_process = subprocess.Popen(
-        ["/opt/homebrew/bin/python3.11", "-m", "neurobridge.cli", "serve", "--port", "8085", "--actuation", "simulated"],
+        ["python3", "-m", "neurobridge.cli", "serve", "--port", "8085", "--actuation", "simulated"],
         env=os.environ,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
