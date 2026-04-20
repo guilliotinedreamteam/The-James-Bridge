@@ -43,10 +43,14 @@ async def predict_frame(request):
         # PHASE 9: Latency Optimization. 
         # model.predict() has massive overhead. Direct invocation is vastly faster for real-time.
         probs_tensor = _online_model(tensor_input, training=False)
-        probs = np.squeeze(probs_tensor.numpy()).tolist()
+        probs_numpy = np.squeeze(probs_tensor.numpy())
         
-        top_phoneme_id = int(np.argmax(probs))
-        confidence = float(np.max(probs))
+        # ⚡ Bolt Optimization: perform NumPy operations on the native array before converting
+        # to a list, avoiding the overhead of implicit list-to-array conversions.
+        top_phoneme_id = int(np.argmax(probs_numpy))
+        confidence = float(np.max(probs_numpy))
+
+        probs = probs_numpy.tolist()
         
         # ACTUATION TRIGGER: Phase 7
         actuated = False
