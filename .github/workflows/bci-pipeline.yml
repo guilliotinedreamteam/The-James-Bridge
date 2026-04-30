@@ -1,22 +1,41 @@
-import time
-import numpy as np
-from neurobridge.processing.artifacts import ArtifactRejector
+name: BCI Clinical Pipeline CI
 
-def test_performance():
-    rejector = ArtifactRejector(sfreq=1000)
-    data = np.random.randn(64, 1000)
-    
-    # Warm up Numba
-    _ = rejector.full_clinical_clean(data)
-    
-    # Measure
-    start = time.perf_counter()
-    for _ in range(10):
-        _ = rejector.full_clinical_clean(data)
-    avg_latency = (time.perf_counter() - start) / 10
-    
-    print(f"Average Processing Latency: {avg_latency*1000:.2f}ms")
-    assert avg_latency < 0.1, f"Latency exceeded 100ms threshold: {avg_latency*1000:.2f}ms"
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
-if __name__ == "__main__":
-    test_performance()
+jobs:
+  validate-and-benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-benchmark
+
+      - name: Security Audit
+        run: |
+          pip install safety
+          safety check
+
+      - name: Run Signal Processing Tests
+        run: |
+          pytest tests/
+
+      - name: Enforce Latency Budget (<100ms)
+        run: |
+          python tests/benchmark_latency.py
