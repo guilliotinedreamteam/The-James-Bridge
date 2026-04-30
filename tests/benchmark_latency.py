@@ -1,4 +1,11 @@
+import sys
+import os
 import time
+
+# Ensure project root is on sys.path so this script works when invoked
+# directly (e.g., `python tests/benchmark_latency.py`) without PYTHONPATH.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import numpy as np
 from neurobridge.processing.artifacts import ArtifactRejector
 
