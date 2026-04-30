@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Neural Interface Bridge System — ECoG-to-Phoneme BCI decoder"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     {name = "NeuroBridge Team"},
 ]
@@ -17,8 +17,8 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
@@ -26,6 +26,7 @@ dependencies = [
     "numpy>=1.26,<2",
     "scipy>=1.13,<2",
     "tensorflow>=2.16,<3",
+    "keras>=3.13.2",
     "fastapi>=0.115,<1",
     "uvicorn>=0.27,<1",
     "pydantic>=2.6,<3",
