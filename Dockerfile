@@ -10,8 +10,10 @@ FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+COPY pyproject.toml requirements.txt ./
+COPY neurobridge/ ./neurobridge/
+COPY VERSION README.md ./
+RUN pip install --no-cache-dir --prefix=/install .
 
 # --- Stage 2: Production ---
 FROM python:3.11-slim

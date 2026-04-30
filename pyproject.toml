@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "neurobridge"
+version = "0.1.0"
+description = "Neural Interface Bridge System — ECoG-to-Phoneme BCI decoder"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "NeuroBridge Team"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    "mne>=1.6,<2",
+    "numpy>=1.26,<2",
+    "scipy>=1.13,<2",
+    "tensorflow>=2.16,<3",
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.27,<1",
+    "pydantic>=2.6,<3",
+    "pandas>=2.2,<3",
+    "numba>=0.59,<1",
+    "flask>=3.0,<4",
+    "starlette>=0.36.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-benchmark>=4.0",
+    "pip-audit>=2.7",
+]
+
+[project.scripts]
+neurobridge = "neurobridge.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["neurobridge*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--ignore=tests/test_actuation_end_to_end.py -v"
+
+[tool.coverage.run]
+source = ["neurobridge"]
+omit = [
+    "neurobridge/utils/*",
+    "neurobridge/data/download_openneuro.py",
+]
+
+[tool.coverage.report]
+fail_under = 35
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__",
+    "raise ImportError",
+    "logger\\.error",
+]

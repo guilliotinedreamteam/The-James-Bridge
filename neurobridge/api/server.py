@@ -44,10 +44,10 @@ async def predict_frame(request):
         # model.predict() has massive overhead. Direct invocation is vastly faster for real-time.
         probs_tensor = _online_model(tensor_input, training=False)
     
-                probs_array = np.squeeze(probs_tensor.numpy())
-                    top_phoneme_id = int(np.argmax(probs_array))
-                    confidence = float(np.max(probs_array))
-                    probs = probs_array.tolist()
+        probs_array = np.squeeze(probs_tensor.numpy())
+        top_phoneme_id = int(np.argmax(probs_array))
+        confidence = float(np.max(probs_array))
+        probs = probs_array.tolist()
         
         # ACTUATION TRIGGER: Phase 7
         actuated = False

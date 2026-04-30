@@ -1,67 +1,85 @@
+"""
+NeuroBridge Decoder Architectures (class-based API)
+
+Wraps the functional model builders from neurobridge.model into a
+class-based interface used by the CLI, tuner, and legacy code paths.
+Both APIs now produce identical model architectures.
+"""
+
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
-try:
-    import tensorflow as tf
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import LSTM, Dense, Bidirectional, TimeDistributed, BatchNormalization, Input, Dropout
-except ImportError:
-    logger.error("TensorFlow is not installed. Phase 3 cannot execute without it. Run 'pip install tensorflow'.")
-    tf = None
 
 class NeurobridgeDecoder:
     """
     Phase 3: Core Neural Decoding Architectures for ECoG to Phoneme translation.
     Contains both the Offline (Bidirectional) and Online (Unidirectional) LSTM graphs.
+
+    This class delegates to the functional builders in ``neurobridge.model``
+    to guarantee that the class-based CLI path and the function-based test
+    path always produce the exact same model architecture.
     """
-    def __init__(self, timesteps: int = 100, channels: int = 128, phoneme_classes: int = 41,
-                 lstm_units: int = 256, dense_units: int = 128, dropout_rate: float = 0.3):
+
+    def __init__(
+        self,
+        timesteps: int = 100,
+        channels: int = 128,
+        phoneme_classes: int = 41,
+        lstm_units: int = 256,
+        dense_units: int = 128,
+        dropout_rate: float = 0.3,
+    ):
         self.timesteps = timesteps
         self.channels = channels
         self.phoneme_classes = phoneme_classes
         self.lstm_units = lstm_units
         self.dense_units = dense_units
         self.dropout_rate = dropout_rate
-        if tf is None:
-            raise ImportError("TensorFlow is missing.")
 
-    def build_offline_decoder(self) -> tf.keras.Model:
+    def build_offline_decoder(self):
         """
         Builds the context-rich Bidirectional LSTM for offline training.
         Input shape: (batch_size, timesteps, channels)
         """
-        logger.info(f"Building Offline Decoder [LSTM: {self.lstm_units}, Dense: {self.dense_units}, Dropout: {self.dropout_rate}]")
-        
-        model = Sequential([
-            Input(shape=(self.timesteps, self.channels)),
-            Bidirectional(LSTM(self.lstm_units, return_sequences=True)),
-            BatchNormalization(),
-            Dropout(self.dropout_rate),
-            TimeDistributed(Dense(self.dense_units, activation='relu')),
-            Dropout(self.dropout_rate),
-            TimeDistributed(Dense(self.phoneme_classes, activation='softmax'))
-        ])
-        
-        model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
-            loss='categorical_crossentropy',
-            metrics=['accuracy']
+        from neurobridge.model import build_neurobridge_decoder, compile_model
+
+        logger.info(
+            "Building Offline Decoder [LSTM: %d, Dense: %d, Dropout: %.1f]",
+            self.lstm_units,
+            self.dense_units,
+            self.dropout_rate,
         )
+        model = build_neurobridge_decoder(
+            timesteps=self.timesteps,
+            features=self.channels,
+            num_classes=self.phoneme_classes,
+            lstm_units=self.lstm_units,
+            dense_units=self.dense_units,
+            dropout_rate=self.dropout_rate,
+        )
+        compile_model(model)
         return model
 
-    def build_online_decoder(self) -> tf.keras.Model:
+    def build_online_decoder(self):
         """
         Builds the low-latency Unidirectional LSTM for real-time inference.
         """
-        logger.info(f"Building Online Decoder [LSTM: {self.lstm_units}, Dense: {self.dense_units}]")
-        
-        model = Sequential([
-            Input(shape=(1, self.channels)),
-            LSTM(self.lstm_units, return_sequences=True), 
-            BatchNormalization(),
-            TimeDistributed(Dense(self.dense_units, activation='relu')),
-            TimeDistributed(Dense(self.phoneme_classes, activation='softmax'))
-        ])
+        from neurobridge.model import build_realtime_decoder
+
+        logger.info(
+            "Building Online Decoder [LSTM: %d, Dense: %d]",
+            self.lstm_units,
+            self.dense_units,
+        )
+        model = build_realtime_decoder(
+            features=self.channels,
+            num_classes=self.phoneme_classes,
+            lstm_units=self.lstm_units,
+            dense_units=self.dense_units,
+        )
         return model

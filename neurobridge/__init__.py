@@ -7,6 +7,6 @@ electrocorticography (ECoG) signals into phonemes using
 deep learning.
 """
 
-__version__ = "1.0.0"
+__version__ = "0.1.0"
 __author__ = "NeuroBridge Team"
 
