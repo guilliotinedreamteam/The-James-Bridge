@@ -40,4 +40,6 @@ jobs:
       - name: Enforce Latency Budget (<100ms)
         run: |
           python tests/benchmark_latency.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}
 
