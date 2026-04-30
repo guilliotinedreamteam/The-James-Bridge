@@ -11,8 +11,9 @@ from typing import Optional
 import tensorflow as tf
 from tensorflow.keras.layers import (
     Input, LSTM, Dense, Bidirectional,
-    TimeDistributed, BatchNormalization, Dropout,
+    TimeDistributed, BatchNormalization, Dropout, Reshape,
 )
+
 
 from neurobridge.config import Config
 
@@ -72,7 +73,8 @@ def build_realtime_decoder(
     x = LSTM(lstm_units, return_sequences=True, name="rt_lstm")(inp)
     x = BatchNormalization(name="rt_bn")(x)
     x = TimeDistributed(Dense(dense_units, activation="relu"), name="rt_dense")(x)
-    out = TimeDistributed(Dense(num_classes, activation="softmax"), name="rt_output")(x)
+    x = TimeDistributed(Dense(num_classes, activation="softmax"), name="rt_output")(x)
+    out = Reshape((num_classes,), name="rt_squeeze")(x)
 
     model = tf.keras.Model(inputs=inp, outputs=out, name="neurobridge_realtime_decoder")
     return model
