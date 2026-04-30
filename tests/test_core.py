@@ -257,8 +257,12 @@ class TestInference:
         from neurobridge.inference import predict_realtime_phoneme as P; from neurobridge.model import build_realtime_decoder as B
         np.testing.assert_allclose(P(frame8, B(features=8, num_classes=3, lstm_units=16)).sum(), 1.0, atol=1e-5)
     def test_consistent(self):
-        d = self._d(); f = mk_ecog(16, 1, seed=42).flatten()
-        np.testing.assert_array_equal(d.predict(f), d.predict(f))
+        d = self._d()
+        f = mk_ecog(16, 1, seed=42).flatten()
+        p1 = d.predict(f)
+        d.reset_state()
+        p2 = d.predict(f)
+        np.testing.assert_array_equal(p1, p2)
     def test_zeros(self):
         d = self._d(); p = d.predict(np.zeros(16, dtype=np.float32))
         np.testing.assert_allclose(p.sum(), 1.0, atol=1e-5)

@@ -80,16 +80,40 @@ class RealtimeDecoder:
                 f"got shape {ecog_frame.shape}"
             )
 
-        # Reshape to (1, 1, features) for single-frame prediction
-        frame = ecog_frame.reshape(1, 1, -1).astype(np.float32)
+        # Initialize temporal buffer for CNN if it doesn't exist
+        import collections
+        if not hasattr(self, '_temporal_buffer'):
+            self._temporal_buffer = collections.deque(
+                [np.zeros((self._features,)) for _ in range(10)], 
+                maxlen=10
+            )
+            
+        # Append new frame
+        self._temporal_buffer.append(ecog_frame)
+        
+        # Reshape to (1, timesteps, features)
+        frame_sequence = np.array(self._temporal_buffer).reshape(1, 10, -1).astype(np.float32)
 
         # PHASE 9: Latency Optimization.
         # model.predict() has massive overhead. Direct invocation is vastly faster for real-time.
-        probs_tensor = self.model(frame, training=False)
+        probs_tensor = self.model(frame_sequence, training=False)
 
         # Flatten: (1, num_phonemes) → (num_phonemes,)
-        return probs_tensor.numpy().flatten()
+        # Note: we need to extract the prediction for the LAST timestep if output is 3D
+        if len(probs_tensor.shape) == 3:
+            probs_array = probs_tensor[:, -1, :]
+        else:
+            probs_array = probs_tensor
+            
+        return probs_array.numpy().flatten()
 
+    def reset_state(self):
+        """Resets the temporal buffer. Useful for testing or when starting a new patient session."""
+        if hasattr(self, '_temporal_buffer'):
+            self._temporal_buffer.clear()
+            for _ in range(10):
+                self._temporal_buffer.append(np.zeros((self._features,)))
+            
     def predict_label(
         self,
         ecog_frame: np.ndarray,
@@ -150,10 +174,25 @@ def predict_realtime_phoneme(
     Returns:
         1D array of phoneme probabilities.
     """
-    frame = ecog_frame.reshape(1, 1, -1).astype(np.float32)
+    import collections
+    
+    # Attach buffer to the function object to maintain state
+    if not hasattr(predict_realtime_phoneme, '_temporal_buffer'):
+        predict_realtime_phoneme._temporal_buffer = collections.deque(
+            [np.zeros(ecog_frame.shape) for _ in range(10)], 
+            maxlen=10
+        )
+        
+    predict_realtime_phoneme._temporal_buffer.append(ecog_frame)
+    frame_sequence = np.array(predict_realtime_phoneme._temporal_buffer).reshape(1, 10, -1).astype(np.float32)
 
     # PHASE 9: Latency Optimization.
     # model.predict() has massive overhead. Direct invocation is vastly faster for real-time.
-    probs_tensor = model(frame, training=False)
+    probs_tensor = model(frame_sequence, training=False)
 
-    return probs_tensor.numpy().flatten()
+    if len(probs_tensor.shape) == 3:
+        probs_array = probs_tensor[:, -1, :]
+    else:
+        probs_array = probs_tensor
+        
+    return probs_array.numpy().flatten()
