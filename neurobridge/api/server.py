@@ -16,12 +16,21 @@ _online_model = None
 _actuator = None
 
 import time
+import collections
+
+# Global rolling buffer for CNN-LSTM temporal context
+# We buffer 10 timesteps by default for the temporal convolutions
+_temporal_buffer = None
+BUFFER_SIZE = 10
 
 async def predict_frame(request):
     """
     Ingests a single frame of data, runs inference, and returns phoneme probabilities.
     Phase 9 Latency Optimization: Bypassing `predict` overhead in favor of direct tensor invocation.
+    Now supports rolling temporal buffer for SOTA CNN-LSTM hybrid.
     """
+    global _temporal_buffer
+    
     try:
         start_time = time.perf_counter()
         
@@ -38,7 +47,19 @@ async def predict_frame(request):
         if arr.shape != (1, expected_channels):
             return JSONResponse({"error": f"Expected shape (1, {expected_channels}), got {arr.shape}"}, status_code=400)
             
-        tensor_input = np.expand_dims(arr, axis=0)
+        # Initialize buffer with zeros if it doesn't exist
+        if _temporal_buffer is None:
+            _temporal_buffer = collections.deque(
+                [np.zeros((expected_channels,)) for _ in range(BUFFER_SIZE)], 
+                maxlen=BUFFER_SIZE
+            )
+            
+        # Append the new frame (squeeze out the batch dim for the deque)
+        _temporal_buffer.append(np.squeeze(arr))
+        
+        # Stack the buffer into a tensor of shape (batch=1, timesteps=10, channels=128)
+        buffer_array = np.array(_temporal_buffer)
+        tensor_input = np.expand_dims(buffer_array, axis=0)
         
         # PHASE 9: Latency Optimization. 
         # model.predict() has massive overhead. Direct invocation is vastly faster for real-time.

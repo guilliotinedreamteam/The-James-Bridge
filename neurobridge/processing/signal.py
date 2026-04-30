@@ -26,16 +26,51 @@ class SignalProcessor:
         rejector = ArtifactRejector(sfreq=sfreq)
         return rejector.full_clinical_clean(data)
 
+    def extract_high_gamma(self, data: np.ndarray, sfreq: int) -> np.ndarray:
+        """
+        Extracts the High-Gamma analytic amplitude envelope (70-150Hz).
+        This is the gold-standard feature for ECoG speech decoding.
+        """
+        from scipy.signal import butter, filtfilt, hilbert
+        
+        # Nyquist frequency is half the sampling rate
+        nyq = 0.5 * sfreq
+        
+        # If the sampling rate is too low to capture High-Gamma, return original data
+        if sfreq <= 150 * 2:
+            logger.warning(f"Sampling frequency {sfreq}Hz is too low for 150Hz High-Gamma extraction. Skipping.")
+            return data
+            
+        logger.info("Extracting High-Gamma (70-150Hz) analytic amplitude envelope.")
+        
+        # 1. Bandpass filter 70-150Hz
+        low = 70.0 / nyq
+        high = 150.0 / nyq
+        b, a = butter(4, [low, high], btype='band')
+        
+        # filtfilt applies the filter forward and backward for zero phase distortion
+        filtered = filtfilt(b, a, data, axis=-1)
+        
+        # 2. Extract analytic amplitude (envelope) via Hilbert transform
+        # np.abs of hilbert transform gives the envelope power
+        analytic_signal = hilbert(filtered, axis=-1)
+        amplitude_envelope = np.abs(analytic_signal)
+        
+        return amplitude_envelope
+
     def downsample_signals(self, data: np.ndarray, current_freq: int = None) -> np.ndarray:
         """
         Downsamples the raw ECoG signal to meet real-time inference latency budgets.
-        Integrated with Phase 8 cleaning.
+        Integrated with Phase 8 cleaning and High-Gamma feature extraction.
         """
         if current_freq is None:
             current_freq = self.original_freq
 
-        # Apply artifact rejection BEFORE downsampling to preserve frequency-specific noise characteristics
+        # 1. Apply artifact rejection
         data = self.apply_artifact_rejection(data, sfreq=current_freq)
+        
+        # 2. Extract High-Gamma envelope BEFORE downsampling (so we don't alias away the high frequencies)
+        data = self.extract_high_gamma(data, sfreq=current_freq)
 
         if current_freq == self.target_freq:
             logger.info("Signal is already at target frequency. Skipping downsampling.")

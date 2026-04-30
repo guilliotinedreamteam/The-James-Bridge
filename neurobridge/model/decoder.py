@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class NeurobridgeDecoder:
     """
     Phase 3: Core Neural Decoding Architectures for ECoG to Phoneme translation.
-    Contains both the Offline (Bidirectional) and Online (Unidirectional) LSTM graphs.
+    Contains both the Offline (CNN + Bidirectional LSTM) and Online (CNN + Unidirectional LSTM) graphs.
 
     This class delegates to the functional builders in ``neurobridge.model``
     to guarantee that the class-based CLI path and the function-based test
@@ -33,6 +33,8 @@ class NeurobridgeDecoder:
         lstm_units: int = 256,
         dense_units: int = 128,
         dropout_rate: float = 0.3,
+        cnn_filters: int = 64,
+        cnn_kernel_size: int = 3,
     ):
         self.timesteps = timesteps
         self.channels = channels
@@ -40,16 +42,20 @@ class NeurobridgeDecoder:
         self.lstm_units = lstm_units
         self.dense_units = dense_units
         self.dropout_rate = dropout_rate
+        self.cnn_filters = cnn_filters
+        self.cnn_kernel_size = cnn_kernel_size
 
     def build_offline_decoder(self):
         """
-        Builds the context-rich Bidirectional LSTM for offline training.
+        Builds the context-rich CNN-Bidirectional LSTM for offline training.
         Input shape: (batch_size, timesteps, channels)
         """
         from neurobridge.model import build_neurobridge_decoder, compile_model
 
         logger.info(
-            "Building Offline Decoder [LSTM: %d, Dense: %d, Dropout: %.1f]",
+            "Building Offline Decoder [CNN: %dx%d, LSTM: %d, Dense: %d, Dropout: %.1f]",
+            self.cnn_filters,
+            self.cnn_kernel_size,
             self.lstm_units,
             self.dense_units,
             self.dropout_rate,
@@ -61,18 +67,22 @@ class NeurobridgeDecoder:
             lstm_units=self.lstm_units,
             dense_units=self.dense_units,
             dropout_rate=self.dropout_rate,
+            cnn_filters=self.cnn_filters,
+            cnn_kernel_size=self.cnn_kernel_size,
         )
         compile_model(model)
         return model
 
     def build_online_decoder(self):
         """
-        Builds the low-latency Unidirectional LSTM for real-time inference.
+        Builds the low-latency CNN-Unidirectional LSTM for real-time inference.
         """
         from neurobridge.model import build_realtime_decoder
 
         logger.info(
-            "Building Online Decoder [LSTM: %d, Dense: %d]",
+            "Building Online Decoder [CNN: %dx%d, LSTM: %d, Dense: %d]",
+            self.cnn_filters,
+            self.cnn_kernel_size,
             self.lstm_units,
             self.dense_units,
         )
@@ -81,5 +91,7 @@ class NeurobridgeDecoder:
             num_classes=self.phoneme_classes,
             lstm_units=self.lstm_units,
             dense_units=self.dense_units,
+            cnn_filters=self.cnn_filters,
+            cnn_kernel_size=self.cnn_kernel_size,
         )
         return model
