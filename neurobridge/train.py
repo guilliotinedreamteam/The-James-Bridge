@@ -12,16 +12,16 @@ from typing import Optional
 import tensorflow as tf
 
 from neurobridge.config import Config
-from neurobridge.model import build_neurobridge_decoder, compile_model
 from neurobridge.data import create_data_generator
+from neurobridge.model import build_neurobridge_decoder, compile_model
 
 logger = logging.getLogger("neurobridge.train")
 
 
 def train_model(
-    epochs: int = None,
-    batch_size: int = None,
-    train_samples: int = None,
+    epochs: Optional[int] = None,
+    batch_size: Optional[int] = None,
+    train_samples: Optional[int] = None,
     model: Optional[tf.keras.Model] = None,
     save_path: Optional[Path] = None,
 ) -> tf.keras.callbacks.History:
@@ -83,7 +83,9 @@ def train_model(
 
     logger.info(
         "Starting training: epochs=%d, batch_size=%d, steps_per_epoch=%d",
-        epochs, batch_size, steps_per_epoch,
+        epochs,
+        batch_size,
+        steps_per_epoch,
     )
 
     # Train

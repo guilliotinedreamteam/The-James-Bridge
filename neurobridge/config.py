@@ -6,8 +6,8 @@ All constants, hyperparameters, and paths are defined here and
 can be overridden via environment variables.
 """
 
-import os
 import logging
+import os
 from pathlib import Path
 
 # Configure logging
@@ -38,9 +38,7 @@ class Config:
 
     # --- Paths ---
     PROJECT_ROOT: Path = Path(__file__).parent.parent
-    MODEL_DIR: Path = Path(os.environ.get(
-        "NB_MODEL_DIR", str(PROJECT_ROOT / "models")
-    ))
+    MODEL_DIR: Path = Path(os.environ.get("NB_MODEL_DIR", str(PROJECT_ROOT / "models")))
     MODEL_FILENAME: str = os.environ.get(
         "NB_MODEL_FILENAME", "neurobridge_decoder.keras"
     )

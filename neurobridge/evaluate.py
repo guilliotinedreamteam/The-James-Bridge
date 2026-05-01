@@ -7,13 +7,14 @@ using phoneme-level accuracy and classification reports.
 
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import numpy as np
 import tensorflow as tf
 
 from neurobridge.config import Config
-from neurobridge.data import generate_mock_ecog_data, generate_mock_phoneme_labels
+from neurobridge.data import (generate_mock_ecog_data,
+                              generate_mock_phoneme_labels)
 
 logger = logging.getLogger("neurobridge.evaluate")
 
@@ -80,7 +81,8 @@ def evaluate_model(
 
     logger.info(
         "Test data shapes — ECoG: %s, Labels: %s",
-        test_ecog.shape, test_labels.shape,
+        test_ecog.shape,
+        test_labels.shape,
     )
 
     # Predict
@@ -121,7 +123,7 @@ def evaluate_model(
 
 def decode_phoneme_sequence(
     phoneme_ids: np.ndarray,
-    phoneme_map: list = None,
+    phoneme_map: Optional[list] = None,
 ) -> list:
     """
     Convert a sequence of phoneme IDs to human-readable labels.

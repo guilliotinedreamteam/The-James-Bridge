@@ -1,10 +1,13 @@
-import logging
 import json
+import logging
 import socket
 import time
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
+
 
 class ProstheticInterface:
     """
@@ -12,11 +15,17 @@ class ProstheticInterface:
     Bridges neural phoneme predictions to physical motor control protocols.
     Supports simulated actuation and TCP-based hardware communication.
     """
-    def __init__(self, mode: str = "simulated", hardware_ip: str = "127.0.0.1", hardware_port: int = 9000):
+
+    def __init__(
+        self,
+        mode: str = "simulated",
+        hardware_ip: str = "127.0.0.1",
+        hardware_port: int = 9000,
+    ):
         self.mode = mode
         self.hardware_ip = hardware_ip
         self.hardware_port = hardware_port
-        
+
         # Mapping 41 phoneme indices to motor primitives.
         # This is a baseline mapping for prosthetic hand actuation.
         # In a clinical setting, this would be subject-specific and mapped to specific degrees of freedom.
@@ -42,31 +51,39 @@ class ProstheticInterface:
         Translates a phoneme detection into a motor command and dispatches it to hardware.
         """
         action = self.phoneme_to_motor.get(phoneme_id, "IDLE")
-        
+
         if self.mode == "simulated":
-            logger.info(f"[SIMULATION] Predicted Phoneme {phoneme_id} -> Actuating {action}")
+            logger.info(
+                f"[SIMULATION] Predicted Phoneme {phoneme_id} -> Actuating {action}"
+            )
             return True
-            
+
         elif self.mode == "tcp":
             try:
-                command = json.dumps({"action": action, "phoneme_id": phoneme_id, "timestamp": time.time()})
+                command = json.dumps(
+                    {
+                        "action": action,
+                        "phoneme_id": phoneme_id,
+                        "timestamp": time.time(),
+                    }
+                )
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.settimeout(0.1) # low latency limit
+                    s.settimeout(0.1)  # low latency limit
                     s.connect((self.hardware_ip, self.hardware_port))
-                    s.sendall(command.encode('utf-8'))
+                    s.sendall(command.encode("utf-8"))
                 logger.info(f"[HARDWARE] TCP Command Sent: {action}")
                 return True
             except Exception as e:
                 logger.error(f"[HARDWARE] Failed to dispatch command: {e}")
                 return False
-        
+
         return False
 
     def batch_actuate(self, predictions: list):
         """
-        Processes a sequence of phoneme predictions (e.g. from a sliding window) 
+        Processes a sequence of phoneme predictions (e.g. from a sliding window)
         and filters for high-confidence transitions to prevent motor jitter.
         """
         for pid in predictions:
-            if pid != 0: # Skip idle
+            if pid != 0:  # Skip idle
                 self.send_command(pid)

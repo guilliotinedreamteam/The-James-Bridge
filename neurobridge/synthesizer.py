@@ -7,7 +7,7 @@ with a vocoder or text-to-speech engine.
 """
 
 import logging
-from typing import List
+from typing import Optional
 
 import numpy as np
 
@@ -18,9 +18,9 @@ logger = logging.getLogger("neurobridge.synthesizer")
 
 def synthesize_speech_from_phonemes(
     phoneme_id_sequence: np.ndarray,
-    sampling_rate: int = None,
-    phoneme_duration_sec: float = None,
-    phoneme_map: list = None,
+    sampling_rate: Optional[int] = None,
+    phoneme_duration_sec: Optional[float] = None,
+    phoneme_map: Optional[list] = None,
 ) -> np.ndarray:
     """
     Simulate converting a phoneme ID sequence into an audio signal.
@@ -69,7 +69,7 @@ def synthesize_speech_from_phonemes(
 
 def phoneme_ids_to_text(
     phoneme_ids: np.ndarray,
-    phoneme_map: list = None,
+    phoneme_map: Optional[list] = None,
 ) -> str:
     """
     Convert a sequence of phoneme IDs to a space-separated string.

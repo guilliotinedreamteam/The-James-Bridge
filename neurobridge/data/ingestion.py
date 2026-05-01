@@ -1,16 +1,21 @@
-import mne
-import numpy as np
 import logging
 import os
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+import mne
+import numpy as np
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
+
 
 class ECoGIngestionPipeline:
     """
     Ingestion pipeline strictly for legitimate, publicly released medical ECoG/EEG datasets.
     Supported formats: EDF (European Data Format), BDF (BioSemi Data Format).
     """
+
     def __init__(self, expected_channels: int = 128):
         self.expected_channels = expected_channels
 
@@ -23,24 +28,32 @@ class ECoGIngestionPipeline:
             raise FileNotFoundError(f"Medical data file not found at: {file_path}")
 
         logger.info(f"Initiating load of medical data: {file_path}")
-        
+
         ext = os.path.splitext(file_path)[1].lower()
-        
+
         try:
-            if ext == '.edf':
-                raw = mne.io.read_raw_edf(file_path, preload=True, verbose='ERROR')
-            elif ext == '.bdf':
-                raw = mne.io.read_raw_bdf(file_path, preload=True, verbose='ERROR')
-            elif ext == '.vhdr':
-                raw = mne.io.read_raw_brainvision(file_path, preload=True, verbose='ERROR')
+            if ext == ".edf":
+                raw = mne.io.read_raw_edf(file_path, preload=True, verbose="ERROR")
+            elif ext == ".bdf":
+                raw = mne.io.read_raw_bdf(file_path, preload=True, verbose="ERROR")
+            elif ext == ".vhdr":
+                raw = mne.io.read_raw_brainvision(
+                    file_path, preload=True, verbose="ERROR"
+                )
             else:
-                raise ValueError(f"Unsupported medical file format: {ext}. Only .edf, .bdf, or .vhdr are permitted.")
-            
-            logger.info(f"Successfully loaded dataset. Sampling frequency: {raw.info['sfreq']} Hz, Channels: {raw.info['nchan']}")
-            
-            if raw.info['nchan'] < self.expected_channels:
-                logger.warning(f"Dataset has {raw.info['nchan']} channels, expected at least {self.expected_channels}.")
-                
+                raise ValueError(
+                    f"Unsupported medical file format: {ext}. Only .edf, .bdf, or .vhdr are permitted."
+                )
+
+            logger.info(
+                f"Successfully loaded dataset. Sampling frequency: {raw.info['sfreq']} Hz, Channels: {raw.info['nchan']}"
+            )
+
+            if raw.info["nchan"] < self.expected_channels:
+                logger.warning(
+                    f"Dataset has {raw.info['nchan']} channels, expected at least {self.expected_channels}."
+                )
+
             return raw
 
         except Exception as e:

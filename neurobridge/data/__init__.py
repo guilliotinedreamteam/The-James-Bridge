@@ -23,10 +23,11 @@ logger = logging.getLogger("neurobridge.data")
 # Mock data generators (for development & testing)
 # ---------------------------------------------------------------------------
 
+
 def generate_mock_ecog_data(
     num_samples: int,
-    timesteps: int = None,
-    features: int = None,
+    timesteps: Optional[int] = None,
+    features: Optional[int] = None,
 ) -> np.ndarray:
     """
     Generate random mock ECoG data for testing.
@@ -44,15 +45,16 @@ def generate_mock_ecog_data(
 
     data = np.random.rand(num_samples, timesteps, features).astype(np.float32)
     logger.debug(
-        "Generated mock ECoG data: shape=%s", data.shape,
+        "Generated mock ECoG data: shape=%s",
+        data.shape,
     )
     return data
 
 
 def generate_mock_phoneme_labels(
     num_samples: int,
-    timesteps: int = None,
-    num_classes: int = None,
+    timesteps: Optional[int] = None,
+    num_classes: Optional[int] = None,
 ) -> np.ndarray:
     """
     Generate random mock one-hot phoneme labels for testing.
@@ -79,7 +81,7 @@ def generate_mock_phoneme_labels(
 
 
 def create_data_generator(
-    batch_size: int = None,
+    batch_size: Optional[int] = None,
 ) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
     """
     Infinite generator that yields batches of mock ECoG data and labels.
@@ -102,10 +104,11 @@ def create_data_generator(
 # Real data loaders (placeholders — implement for your dataset)
 # ---------------------------------------------------------------------------
 
+
 def load_real_ecog_data(
     data_path: str,
-    timesteps: int = None,
-    features: int = None,
+    timesteps: Optional[int] = None,
+    features: Optional[int] = None,
     sampling_rate: int = 1000,
     target_downsample_rate: int = 100,
 ) -> Optional[np.ndarray]:
@@ -154,7 +157,8 @@ def load_real_ecog_data(
             raw = raw[:timesteps, :]
         elif raw.shape[0] < timesteps:
             padding = np.zeros(
-                (timesteps - raw.shape[0], features), dtype=np.float32,
+                (timesteps - raw.shape[0], features),
+                dtype=np.float32,
             )
             raw = np.vstack([raw, padding])
 
@@ -177,8 +181,8 @@ def load_real_ecog_data(
 
 def load_real_phoneme_labels(
     labels_path: str,
-    timesteps: int = None,
-    num_classes: int = None,
+    timesteps: Optional[int] = None,
+    num_classes: Optional[int] = None,
 ) -> Optional[np.ndarray]:
     """
     Load and preprocess real phoneme labels.
@@ -207,7 +211,8 @@ def load_real_phoneme_labels(
         # For now, generates random labels to simulate successful loading.
         sparse = np.random.randint(0, num_classes, size=(timesteps,))
         onehot = tf.keras.utils.to_categorical(
-            sparse, num_classes=num_classes,
+            sparse,
+            num_classes=num_classes,
         ).astype(np.float32)
 
         logger.info("Preprocessed phoneme labels shape: %s", onehot.shape)
