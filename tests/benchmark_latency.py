@@ -18,9 +18,9 @@ def test_performance():
     
     # Measure
     start = time.perf_counter()
-    for _ in range(10):
+    for _ in range(100):
         _ = rejector.full_clinical_clean(data)
-    avg_latency = (time.perf_counter() - start) / 10
+    avg_latency = (time.perf_counter() - start) / 100
     
     print(f"Average Processing Latency: {avg_latency*1000:.2f}ms")
     assert avg_latency < 0.1, f"Latency exceeded 100ms threshold: {avg_latency*1000:.2f}ms"

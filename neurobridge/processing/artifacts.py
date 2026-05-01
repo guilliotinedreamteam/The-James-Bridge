@@ -5,14 +5,13 @@ from scipy.signal import butter, iirnotch
 
 logger = logging.getLogger(__name__)
 
-@njit(parallel=True, fastmath=True)
-def _fused_bci_kernel(data, b_n, a_n, b_b, a_b, threshold):
+@njit(parallel=True, fastmath=True, cache=True)
+def _fused_bci_kernel(data, out, b_n, a_n, b_b, a_b, threshold):
     """
     High-performance JIT kernel. 
     Processes Notch -> Bandpass -> Thresholding in a single memory pass.
     """
     n_channels, n_samples = data.shape
-    out = np.empty_like(data)
     
     # Pre-allocate delay lines for filters per channel
     # Notch order is 2, Bandpass (order 4) is 8 for [low, high]
@@ -20,23 +19,28 @@ def _fused_bci_kernel(data, b_n, a_n, b_b, a_b, threshold):
     b_order = len(a_b) - 1
 
     for c in prange(n_channels):
-        # Initialize filter states
-        zi_n = np.zeros(n_order)
-        zi_b = np.zeros(b_order)
+        zi_n_0, zi_n_1 = 0.0, 0.0
+        zi_b_0, zi_b_1, zi_b_2, zi_b_3 = 0.0, 0.0, 0.0, 0.0
+        zi_b_4, zi_b_5, zi_b_6, zi_b_7 = 0.0, 0.0, 0.0, 0.0
         
         for s in range(n_samples):
             val = data[c, s]
             
-            # 1. Notch Filter (Direct Form II Transposed)
-            filt_n = b_n[0] * val + zi_n[0]
-            zi_n[0] = b_n[1] * val + zi_n[1] - a_n[1] * filt_n
-            zi_n[1] = b_n[2] * val - a_n[2] * filt_n
+            # 1. Notch Filter
+            filt_n = b_n[0] * val + zi_n_0
+            zi_n_0 = b_n[1] * val + zi_n_1 - a_n[1] * filt_n
+            zi_n_1 = b_n[2] * val - a_n[2] * filt_n
             
             # 2. Bandpass Filter
-            filt_b = b_b[0] * filt_n + zi_b[0]
-            for i in range(b_order - 1):
-                zi_b[i] = b_b[i+1] * filt_n + zi_b[i+1] - a_b[i+1] * filt_b
-            zi_b[b_order-1] = b_b[b_order] * filt_n - a_b[b_order] * filt_b
+            filt_b = b_b[0] * filt_n + zi_b_0
+            zi_b_0 = b_b[1] * filt_n + zi_b_1 - a_b[1] * filt_b
+            zi_b_1 = b_b[2] * filt_n + zi_b_2 - a_b[2] * filt_b
+            zi_b_2 = b_b[3] * filt_n + zi_b_3 - a_b[3] * filt_b
+            zi_b_3 = b_b[4] * filt_n + zi_b_4 - a_b[4] * filt_b
+            zi_b_4 = b_b[5] * filt_n + zi_b_5 - a_b[5] * filt_b
+            zi_b_5 = b_b[6] * filt_n + zi_b_6 - a_b[6] * filt_b
+            zi_b_6 = b_b[7] * filt_n + zi_b_7 - a_b[7] * filt_b
+            zi_b_7 = b_b[8] * filt_n - a_b[8] * filt_b
             
             # 3. Amplitude Thresholding
             if abs(filt_b) > threshold:
@@ -67,9 +71,11 @@ class ArtifactRejector:
         if data.ndim == 1:
             data = data.reshape(1, -1)
             
-        return _fused_bci_kernel(
-            data, 
+        out = np.empty_like(data)
+        _fused_bci_kernel(
+            data, out,
             self.b_n, self.a_n, 
             self.b_b, self.a_b, 
             microvolt_limit
         )
+        return out
