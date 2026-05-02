@@ -1,63 +1,57 @@
 import logging
 import os
-from typing import Optional
+from typing import Tuple, Optional
 
 import numpy as np
+import tensorflow as tf
 
-try:
-    import tensorflow as tf
-    from tensorflow.keras.callbacks import (EarlyStopping, ModelCheckpoint,
-                                            ReduceLROnPlateau)
-except ImportError:
-    tf = None
+# 1. Import your new custom loss function
+from neurobridge.model.losses import CategoricalFocalLoss
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 
 class ModelTrainer:
-    """
-    Phase 4: Training & Evaluation Pipeline.
-    Manages the offline training loops, callbacks, and weight persistence for the Neurobridge models.
-    """
+    """Handles training lifecycle, callbacks, and weight persistence."""
 
-    def __init__(self, model: "tf.keras.Model", checkpoint_dir: str = "checkpoints"):
-        if tf is None:
-            raise ImportError(
-                "TensorFlow is missing. Cannot initialize training pipeline."
-            )
-
+    def __init__(self, model: tf.keras.Model, learning_rate: float = 1e-4):
         self.model = model
-        self.checkpoint_dir = checkpoint_dir
+        self.learning_rate = learning_rate
 
-        if not os.path.exists(self.checkpoint_dir):
-            os.makedirs(self.checkpoint_dir)
-            logger.info(f"Created checkpoint directory at {self.checkpoint_dir}")
+        # 2. Replaced 'categorical_crossentropy' with CategoricalFocalLoss
+        logger.info(f"Compiling model with Adam (lr={learning_rate}) and Focal Loss.")
+        self.model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=self.learning_rate),
+            loss=CategoricalFocalLoss(gamma=2.0, alpha=0.25),
+            metrics=["accuracy"],
+        )
 
-    def get_callbacks(self, model_name: str) -> list:
+    # 3. Inject the sample weighting logic
+    def compute_temporal_sample_weights(self, y_train: np.ndarray) -> np.ndarray:
         """
-        Configures the standard Keras callbacks for robust training.
+        Computes 2D sample weights (batch_size, timesteps) to counteract class imbalance.
+        y_train shape: (batch, timesteps, num_classes) - expected one-hot
         """
-        checkpoint_path = os.path.join(self.checkpoint_dir, f"{model_name}_best.keras")
-
-        callbacks = [
-            ModelCheckpoint(
-                filepath=checkpoint_path,
-                monitor="val_loss",
-                save_best_only=True,
-                mode="min",
-                verbose=1,
-            ),
-            EarlyStopping(
-                monitor="val_loss", patience=10, restore_best_weights=True, verbose=1
-            ),
-            ReduceLROnPlateau(
-                monitor="val_loss", factor=0.5, patience=5, min_lr=1e-6, verbose=1
-            ),
-        ]
-        return callbacks
+        logger.info("Computing temporal sample weights to prevent model collapse...")
+        
+        # Flatten to count class frequencies
+        y_flat = np.argmax(y_train, axis=-1).flatten()
+        classes, counts = np.unique(y_flat, return_counts=True)
+        
+        # Inverse frequency weighting
+        total_samples = len(y_flat)
+        class_weights = {cls: total_samples / (len(classes) * count) for cls, count in zip(classes, counts)}
+        
+        # Cap the maximum weight to prevent gradient explosions from extremely rare phonemes
+        max_weight = 10.0
+        class_weights = {k: min(v, max_weight) for k, v in class_weights.items()}
+        
+        # Create the (batch, timesteps) weight matrix
+        y_labels = np.argmax(y_train, axis=-1)
+        sample_weights = np.vectorize(class_weights.get)(y_labels)
+        
+        logger.info(f"Class weight spread: Min={min(class_weights.values()):.2f}, Max={max(class_weights.values()):.2f}")
+        return sample_weights
 
     def train(
         self,
@@ -69,48 +63,55 @@ class ModelTrainer:
         batch_size: int = 32,
         model_name: str = "neurobridge_offline",
     ) -> "tf.keras.callbacks.History":
-        """
-        Executes the offline training loop.
-        """
-        logger.info(
-            f"Initiating training for {model_name}. Epochs: {epochs}, Batch Size: {batch_size}"
+        """Executes the training loop with early stopping and checkpointing."""
+        
+        os.makedirs("checkpoints", exist_ok=True)
+        checkpoint_path = f"checkpoints/{model_name}_best.keras"
+
+        callbacks = [
+            tf.keras.callbacks.ModelCheckpoint(
+                filepath=checkpoint_path,
+                save_best_only=True,
+                monitor="val_loss" if x_val is not None else "loss",
+                verbose=1,
+            ),
+            tf.keras.callbacks.EarlyStopping(
+                monitor="val_loss" if x_val is not None else "loss",
+                patience=10,
+                restore_best_weights=True,
+                verbose=1,
+            ),
+            tf.keras.callbacks.ReduceLROnPlateau(
+                monitor="val_loss" if x_val is not None else "loss",
+                factor=0.5,
+                patience=5,
+                verbose=1,
+            ),
+        ]
+
+        # 4. Generate sample weights for the training data
+        sample_weights = self.compute_temporal_sample_weights(y_train)
+
+        validation_data = None
+        if x_val is not None and y_val is not None:
+            # 5. Generate sample weights for the validation data tuple
+            val_weights = self.compute_temporal_sample_weights(y_val)
+            validation_data = (x_val, y_val, val_weights)
+
+        logger.info(f"Starting training for {epochs} epochs (batch={batch_size})")
+
+        history = self.model.fit(
+            x=x_train,
+            y=y_train,
+            sample_weight=sample_weights,  # 6. Apply weights to the fit function
+            validation_data=validation_data,
+            epochs=epochs,
+            batch_size=batch_size,
+            callbacks=callbacks,
         )
 
-        validation_data = (
-            (x_val, y_val) if x_val is not None and y_val is not None else None
-        )
-        if validation_data is None:
-            logger.warning(
-                "No validation data provided. Model checkpointing may rely on training loss instead."
-            )
+        final_path = f"checkpoints/{model_name}_final.keras"
+        self.model.save(final_path)
+        logger.info(f"Training complete. Final model saved to {final_path}")
 
-        callbacks = self.get_callbacks(model_name)
-
-        try:
-            history = self.model.fit(
-                x=x_train,
-                y=y_train,
-                validation_data=validation_data,
-                epochs=epochs,
-                batch_size=batch_size,
-                callbacks=callbacks,
-            )
-            logger.info("Training cycle complete.")
-            return history
-
-        except Exception as e:
-            logger.error(f"Training failed: {str(e)}")
-            raise e
-
-    def evaluate(self, x_test: np.ndarray, y_test: np.ndarray) -> dict:
-        """
-        Evaluates the model on unseen data and returns the metrics.
-        """
-        logger.info("Initiating model evaluation...")
-        try:
-            results = self.model.evaluate(x_test, y_test, return_dict=True)
-            logger.info(f"Evaluation metrics: {results}")
-            return results
-        except Exception as e:
-            logger.error(f"Evaluation failed: {str(e)}")
-            raise e
+        return history
